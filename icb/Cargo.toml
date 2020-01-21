@@ -3,8 +3,14 @@ name = "icb"
 version = "0.1.0"
 authors = ["Jasper Lievisse Adriaanse <j@jasper.la>"]
 edition = "2018"
+description = "small library for writing ICB clients"
+repository = "https://github.com/jasperla/icb-rs"
+keywords = ["icb", "chat", "tcp"]
+categories = ["network-programming"]
+license = "ISC"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+maintenance = { status = "experimental"  }
 
 [dependencies]
 crossbeam-channel = "0.4"
