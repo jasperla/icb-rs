@@ -4,13 +4,14 @@ use std::collections::HashMap;
 use std::io::prelude::*;
 use std::io::ErrorKind;
 use std::net::{Shutdown, TcpStream};
-
 use std::time::Duration;
 
 pub mod packets;
+
+/// Messages the client needs to format/display to the user.
 pub type Icbmsg = Vec<String>;
 
-// Session parameters provided by client
+/// Session parameters provided by client upon initialization.
 #[derive(Debug)]
 pub struct Config {
     pub serverip: &'static str,
@@ -18,11 +19,15 @@ pub struct Config {
     pub port: u16,
 }
 
+/// Commands a `Client` can send to the `Server` through the `cmd` channels.
 #[derive(Debug, PartialEq)]
 pub enum Command {
+    /// Terminate the connection to the remote server. ICB doesn't have a way to
+    /// perform a clean disconnect other than shutting down the socket.
     Bye,
 }
 
+/// Representation of the client/user state.
 #[derive(Debug)]
 pub struct Client {
     pub nickname: String,
@@ -30,6 +35,7 @@ pub struct Client {
     pub msg_r: Receiver<Icbmsg>,
 }
 
+/// Representation of the connection to the remote server.
 #[derive(Debug)]
 pub struct Server {
     hostname: String,
@@ -58,9 +64,9 @@ impl Server {
         }
     }
 
-    // Read a buffer's worth of data from the TcpStream and dispatch it to the
-    // correct parser.
-    // If the caller expects a packet of certain type it is provided through `expected`.
+    /// Read a buffer's worth of data from the TcpStream and dispatch it to the
+    /// correct parser.
+    /// If the caller expects a packet of certain type it is provided through `expected`.
     fn read(&mut self, expected: Option<char>) -> Result<HashMap<&str, String>, std::io::Error> {
         // Allocate a buffer large enough to hold the maximum ICB packet.
         let mut buffer = [0; 254];
@@ -130,6 +136,9 @@ impl Server {
         ))
     }
 
+    /// This is the "main event loop" of the library which starts by setting up the socket as
+    /// non-blocking before entering a loop where it looks for incoming commands on `msg_r`
+    /// which need to be dealt with. Secondly it looks for any ICB traffic that was received.
     pub fn run(&mut self) {
         // Up to this point blocking reads from the network were fine, now we're going to reqeuire
         // non-blocking reads.

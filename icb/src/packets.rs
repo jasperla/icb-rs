@@ -45,14 +45,19 @@ fn packet_create(packet_type: char, fields: Vec<&str>) -> String {
 /// A Packet contains an identifier of the packet type and the functions responsible for creating a
 /// packet (create) and for parsing one (parse).
 pub struct Packet {
+    /// Designation of the actual packet type.
     pub packet_type: char,
+    /// Parser for a given function, the returned HashMap contains at least one field (`type`)
+    /// which is set to the `packet_type`.
     pub parse: fn(Vec<u8>, usize) -> HashMap<&'static str, String>,
+    /// Used to create a valid packet with all the provided fields.
     pub create: fn(Vec<&str>) -> String,
 }
 
 /// These are all the valid packet types we know of.
 pub static PACKETS: [&Packet; 5] = [&LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL];
 
+/// Login packet, used to join the initial channel after connecting
 pub static LOGIN: Packet = Packet {
     packet_type: T_LOGIN,
     parse: login_packet_parse,
@@ -73,7 +78,7 @@ fn login_packet_create(fields: Vec<&str>) -> String {
 }
 
 /// Protocol packet
-static PROTOCOL: Packet = Packet {
+pub static PROTOCOL: Packet = Packet {
     packet_type: T_PROTOCOL,
     parse: protocol_packet_parse,
     create: protocol_packet_create,
@@ -111,7 +116,7 @@ fn protocol_packet_create(fields: Vec<&str>) -> String {
 }
 
 /// Status packet
-static STATUS: Packet = Packet {
+pub static STATUS: Packet = Packet {
     packet_type: T_STATUS,
     parse: status_packet_parse,
     create: invalid_packet,
@@ -127,7 +132,7 @@ fn invalid_packet(_fields: Vec<&str>) -> String {
 }
 
 /// Open packet (normal chats)
-static OPEN: Packet = Packet {
+pub static OPEN: Packet = Packet {
     packet_type: T_OPEN,
     parse: open_packet_parse,
     create: open_packet_create,
@@ -156,7 +161,7 @@ fn open_packet_create(fields: Vec<&str>) -> String {
 }
 
 /// Personal message packet (direct chats)
-static PERSONAL: Packet = Packet {
+pub static PERSONAL: Packet = Packet {
     packet_type: T_PERSONAL,
     parse: personal_packet_parse,
     create: personal_packet_create,
