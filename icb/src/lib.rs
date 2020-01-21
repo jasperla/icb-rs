@@ -21,7 +21,6 @@ pub struct Config {
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
-    Hello,
     Bye,
 }
 

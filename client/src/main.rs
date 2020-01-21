@@ -23,9 +23,6 @@ fn main() {
                 println!("msg_r: read: {:?}", m)
             }
 
-            println!("cmd_s: Sending Hello");
-            client.cmd_s.send(icb::Command::Hello).unwrap();
-
             std::thread::sleep(Duration::from_secs(1));
 
             println!("cmd_s: Sending Bye");
