@@ -8,22 +8,22 @@ pub const T_STATUS: char = 'd';
 pub const T_ERROR: char = 'e';
 pub const T_PROTOCOL: char = 'j';
 
-/// Generic packet creator. Should really be trait method...
-/// That way we can rework all the packets functions below as implementations
-/// like:
-/// trait IcbPacket {
-///   fn parse();
-///   fn create(packet_type: char, fields: Vec<&str>) -> String { etc };
-/// }
-/// impl IcbPacket for LoginPacket {
-///   pub fn new()
-/// }
-///
-/// static PACKETS: [&dyn<IcbPacket>] {
-///     &LoginPacket,
-/// }
-/// What needs to be considered is whether it's a good idea to allocate
-/// all the different packet types upfront?
+// Generic packet creator. Should really be trait method...
+// That way we can rework all the packets functions below as implementations
+// like:
+// trait IcbPacket {
+//   fn parse();
+//   fn create(packet_type: char, fields: Vec<&str>) -> String { etc };
+// }
+// impl IcbPacket for LoginPacket {
+//   pub fn new()
+// }
+//
+// static PACKETS: [&dyn<IcbPacket>] {
+//     &LoginPacket,
+// }
+// What needs to be considered is whether it's a good idea to allocate
+// all the different packet types upfront?
 
 fn packet_create(packet_type: char, fields: Vec<&str>) -> String {
     let data = fields.join("\x01");
@@ -123,7 +123,7 @@ fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, Str
 }
 
 fn invalid_packet(_fields: Vec<&str>) -> String {
-    panic!("Attempting to create a server-only packet.");
+    panic!("Attempting to create a packet that's only valid for a remote server to send");
 }
 
 /// Open packet (normal chats)
