@@ -42,3 +42,5 @@ Note that the `Server` does not implement an ICB server, it is the component ins
 library responsible for communicating with the remote server.
 
 ## ICB
+
+Protocol documentation for ICB can be found [here](http://www.icb.net/_jrudd/icb/protocol.html).

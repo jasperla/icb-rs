@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::prelude::*;
 use std::io::ErrorKind;
-use std::net::TcpStream;
+use std::net::{Shutdown,TcpStream};
 use std::time::Duration;
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -139,7 +139,9 @@ impl Server {
                 match self.cmd_r.try_recv() {
                     Ok(m) if m == Command::Bye => {
                         println!("Terminating connection to remote host");
-                        self.send(Box::new([0x1, 0x2, 0x3])).unwrap();
+                        self.sock.as_ref().unwrap().shutdown(Shutdown::Both).unwrap();
+                        // XXX: Inform client the connection was closed
+                        break;
                     }
                     Ok(m) => println!("cmd_r: read: {:?}", m),
                     Err(_) => {} //println!("cmd_r: nothing came in"),
