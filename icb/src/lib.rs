@@ -1,14 +1,13 @@
+use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_utils::thread;
 use std::collections::HashMap;
 use std::io::prelude::*;
 use std::io::ErrorKind;
-use std::net::{Shutdown,TcpStream};
+use std::net::{Shutdown, TcpStream};
+
 use std::time::Duration;
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use crossbeam_utils::thread;
-
 pub mod packets;
-pub type Msg = Box<u8>;
 pub type Icbmsg = Vec<String>;
 
 // Session parameters provided by client
@@ -132,42 +131,54 @@ impl Server {
     }
 
     pub fn run(&mut self) {
+        // Up to this point blocking reads from the network were fine, now we're going to reqeuire
+        // non-blocking reads.
+        self.sock
+            .as_ref()
+            .unwrap()
+            .set_nonblocking(true)
+            .expect("set_nonblocking on socket failed");
+
         // XXX: thread::scope() really needed here?
         thread::scope(|s| {
             s.spawn(|_| loop {
+                // Handle incoming commands sent by the client.
                 match self.cmd_r.try_recv() {
                     Ok(m) if m == Command::Bye => {
                         println!("Terminating connection to remote host");
-                        self.sock.as_ref().unwrap().shutdown(Shutdown::Both).unwrap();
+                        self.sock
+                            .as_ref()
+                            .unwrap()
+                            .shutdown(Shutdown::Both)
+                            .unwrap();
                         // XXX: Inform client the connection was closed
                         break;
                     }
-                    Ok(m) => println!("cmd_r: read: {:?}", m),
-                    Err(_) => {} //println!("cmd_r: nothing came in"),
+                    Ok(m) => println!("cmd_r: Received unknown command: {:?}", m),
+                    Err(_) => {}
                 }
 
+                // Handle incoming ICB packets, based on the type we'll determine
+                // how to handle them.
+                // For example T_OPEN and T_PERSONAL will be sent to the client.
                 if let Ok(v) = self.read(None) {
-                    if v["type"].chars().next().unwrap() == packets::T_OPEN {
-                        // self.msg_s.send(vec![v["nickname"], v["message"]]).unwrap();
-                        self.msg_s.send(vec!["me".to_string(), "something very wise".to_string()]).unwrap();
+                    if [packets::T_OPEN, packets::T_PERSONAL]
+                        .contains(&v["type"].chars().next().unwrap())
+                    {
+                        // Use an indirection to prevent mutably borrowing self.msg_s
+                        let msg = vec![
+                            v["type"].clone(),
+                            v["nickname"].clone(),
+                            v["message"].clone(),
+                        ];
+                        self.msg_s.send(msg).unwrap();
                     }
-                    // println!("Got some data from the network: {:?}", v);
                 }
-                // let msg = self.read(None);
 
-                // let msg = self.recv();
-                // println!("msg_s: sending {}", msg);
-                // self.msg_s.send(msg.clone()).unwrap();
-
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_millis(1));
             });
         })
         .unwrap();
-    }
-
-    fn send(&mut self, message: Box<[u8]>) -> std::io::Result<()> {
-        self.sock.as_ref().unwrap().write_all(&message)?;
-        Ok(())
     }
 
     // Send a login packet with the 'login' command and a default group of '1'.
