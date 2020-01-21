@@ -8,6 +8,7 @@ repository = "https://github.com/jasperla/icb-rs"
 keywords = ["icb", "chat", "tcp"]
 categories = ["network-programming"]
 license = "ISC"
+readme = "README.md"
 
 [badges]
 maintenance = { status = "experimental"  }
