@@ -1,4 +1,3 @@
-// use client::Ui; // For the client UI parts, use: https://github.com/fdehau/tui-rs
 use icb::Config;
 
 use crossbeam_utils::thread;

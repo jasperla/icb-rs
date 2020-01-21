@@ -7,6 +7,7 @@ description = "minimalistic ICB client"
 repository = "https://github.com/jasperla/icb-rs"
 keywords = ["icb", "tui"]
 license = "ISC"
+readme = "README.md"
 
 [badges]
 maintenance = { status = "experimental" }
