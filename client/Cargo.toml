@@ -12,5 +12,5 @@ license = "ISC"
 maintenance = { status = "experimental" }
 
 [dependencies]
-icb = { path = "../icb" }
+icb = { path = "../icb", version = "0.1" }
 crossbeam-utils = "0.7"
