@@ -103,6 +103,7 @@ impl Server {
             }
         }
 
+        // XXX: We need to handle packets of 255 bytes too.
         if packet_len == 0 {
             // Still nothing worthwhile found -- bail out.
             return Ok(hashmap! {"type" => packets::T_INVALID.to_string()});

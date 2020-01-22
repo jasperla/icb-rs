@@ -29,11 +29,12 @@ fn main() {
                     packets::T_PERSONAL => println!("{} **{}** {}", ts, m[1], m[2]),
                     packets::T_PROTOCOL => println!("==> Connected to {} on {}", m[2], m[1]),
                     packets::T_STATUS => {
-                        if m[1] == "Status" {
-                            println!("{}: {} ", ts, m[2])
-                        } else {
-                            // What categories other than "Status" can we expect?
-                            println!("=> {}", m[2])
+                        match m[1].as_str() {
+                            "Status" | "Name" => println!("{}: {} ", ts, m[2]),
+                            _ => {
+                                // What categories other than "Status" can we expect?
+                                println!("=> {}", m[2])
+                            }
                         }
                     }
                     _ => println!("msg_r: {} read: {:?}", ts, m),
