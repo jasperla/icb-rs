@@ -72,9 +72,7 @@ fn login_packet_parse(buffer: Vec<u8>, _len: usize) -> HashMap<&'static str, Str
     // A received login packet should only contain the packet type byte terminated
     // by a NUL.
     assert!(buffer[1] == b'\x00');
-    let mut packet_data = HashMap::new();
-    packet_data.insert("type", T_LOGIN.to_string());
-    packet_data
+    hashmap! { "type" => T_LOGIN.to_string() }
 }
 
 fn login_packet_create(fields: Vec<&str>) -> String {
@@ -100,19 +98,17 @@ fn packet_buffer_iter(buffer: &[u8], len: usize) -> impl Iterator<Item = &[u8]> 
 
 fn protocol_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
     let mut iter = packet_buffer_iter(&buffer, len);
-    let mut packet_data = HashMap::new();
-
-    packet_data.insert("type", T_PROTOCOL.to_string());
 
     // Skip the first field (protocol level)
     let _ = iter.next();
     let hostid = str::from_utf8(iter.next().unwrap()).unwrap();
     let clientid = str::from_utf8(iter.next().unwrap()).unwrap();
 
-    packet_data.insert("hostid", hostid.to_string());
-    packet_data.insert("clientid", clientid.to_string());
-
-    packet_data
+    hashmap! {
+        "type" => T_PROTOCOL.to_string(),
+        "hostid" => hostid.to_string(),
+        "clientid" => clientid.to_string(),
+    }
 }
 
 fn protocol_packet_create(fields: Vec<&str>) -> String {
@@ -129,17 +125,15 @@ pub static STATUS: Packet = Packet {
 #[allow(unused_variables)]
 fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
     let mut iter = packet_buffer_iter(&buffer, len);
-    let mut packet_data = HashMap::new();
-
-    packet_data.insert("type", T_STATUS.to_string());
 
     let category = str::from_utf8(iter.next().unwrap()).unwrap();
     let message = str::from_utf8(iter.next().unwrap()).unwrap();
 
-    packet_data.insert("category", category.to_string());
-    packet_data.insert("message", message.to_string());
-
-    packet_data
+    hashmap! {
+        "type" => T_STATUS.to_string(),
+        "category" => category.to_string(),
+        "message" => message.to_string(),
+    }
 }
 
 fn invalid_packet(_fields: Vec<&str>) -> String {
@@ -155,19 +149,15 @@ pub static OPEN: Packet = Packet {
 
 fn open_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
     let mut iter = packet_buffer_iter(&buffer, len);
-    let mut packet_data = HashMap::new();
 
-    packet_data.insert("type", T_OPEN.to_string());
-    packet_data.insert(
-        "nickname",
-        str::from_utf8(iter.next().unwrap()).unwrap().to_string(),
-    );
-    packet_data.insert(
-        "message",
-        str::from_utf8(iter.next().unwrap()).unwrap().to_string(),
-    );
+    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
+    let message = str::from_utf8(iter.next().unwrap()).unwrap();
 
-    packet_data
+    hashmap! {
+        "type" => T_OPEN.to_string(),
+        "nickname" => nickname.to_string(),
+        "message" => message.to_string(),
+    }
 }
 
 #[allow(unused_variables)]
@@ -184,19 +174,15 @@ pub static PERSONAL: Packet = Packet {
 
 fn personal_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
     let mut iter = packet_buffer_iter(&buffer, len);
-    let mut packet_data = HashMap::new();
 
-    packet_data.insert("type", T_PERSONAL.to_string());
-    packet_data.insert(
-        "nickname",
-        str::from_utf8(iter.next().unwrap()).unwrap().to_string(),
-    );
-    packet_data.insert(
-        "message",
-        str::from_utf8(iter.next().unwrap()).unwrap().to_string(),
-    );
+    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
+    let message = str::from_utf8(iter.next().unwrap()).unwrap();
 
-    packet_data
+    hashmap! {
+        "type" => T_PERSONAL.to_string(),
+        "nickname" => nickname.to_string(),
+        "message" => message.to_string(),
+    }
 }
 
 #[allow(unused_variables)]
