@@ -1,5 +1,6 @@
-use icb::Config;
+use icb::{packets, Config};
 
+use chrono::{Local, Timelike};
 use crossbeam_utils::thread;
 use std::time::Duration;
 
@@ -12,7 +13,6 @@ fn main() {
 
     let (client, mut server) = icb::init(config).unwrap();
 
-    println!("Entering thread loop from client");
     thread::scope(|s| {
         s.spawn(|_| {
             server.run();
@@ -20,13 +20,26 @@ fn main() {
 
         s.spawn(|_| loop {
             if let Ok(m) = client.msg_r.try_recv() {
-                println!("msg_r: read: {:?}", m)
+                let now = Local::now();
+                let ts = format!("{:02}:{:02}", now.hour(), now.minute());
+
+                let packet_type = m[0].chars().next().unwrap();
+                match packet_type {
+                    packets::T_OPEN => println!("{} <{}> {}", ts, m[1], m[2]),
+                    packets::T_PROTOCOL => println!("==> Connected to {} on {}", m[2], m[1]),
+                    packets::T_STATUS => {
+                        if m[1] == "Status" {
+                            println!("{}: {} ", ts, m[2])
+                        } else {
+                            // What categories other than "Status" can we expect?
+                            println!("=> {}", m[2])
+                        }
+                    }
+                    _ => println!("msg_r: {} read: {:?}", ts, m),
+                }
             }
 
             std::thread::sleep(Duration::from_millis(1));
-
-            //println!("cmd_s: Sending Bye");
-            //client.cmd_s.send(icb::Command::Bye).unwrap();
         });
     })
     .unwrap();

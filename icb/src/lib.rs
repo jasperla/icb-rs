@@ -14,6 +14,8 @@ mod util;
 use util::q;
 
 /// Messages the client needs to format/display to the user.
+/// First field is always the packet type (`T_*`), followed
+/// by a type-specific order.
 pub type Icbmsg = Vec<String>;
 
 /// Session parameters provided by client upon initialization.
@@ -206,7 +208,12 @@ impl Server {
                         ];
                         self.msg_s.send(msg).unwrap();
                     } else if v["type"].chars().next().unwrap() == packets::T_STATUS {
-                        q("status packet", &v).unwrap();
+                        let msg = vec![
+                            v["type"].clone(),
+                            v["category"].clone(),
+                            v["message"].clone(),
+                        ];
+                        self.msg_s.send(msg).unwrap();
                     }
                 }
 
