@@ -142,10 +142,9 @@ impl Server {
             }
         }
 
+        q("Looking for a packet of type", &packet_type_byte)?;
         for packet in &packets::PACKETS {
-            q("Looking for a packet of type", &packet_type_byte)?;
             if packet.packet_type == packet_type_byte {
-                q("Matching packet for", &packet_type_byte)?;
                 let data = (packet.parse)(message, packet_len);
                 q("data", &data)?;
 
