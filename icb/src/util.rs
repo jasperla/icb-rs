@@ -11,4 +11,3 @@ pub fn q<T: std::fmt::Debug>(msg: &str, thing: &T) -> std::io::Result<()> {
     file.write_all(format!("{}: {:?}\n", msg, thing).as_bytes())?;
     Ok(())
 }
-

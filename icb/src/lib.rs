@@ -6,6 +6,9 @@ use std::io::ErrorKind;
 use std::net::{Shutdown, TcpStream};
 use std::time::Duration;
 
+#[macro_use]
+extern crate maplit;
+
 pub mod packets;
 mod util;
 use util::q;
@@ -70,34 +73,50 @@ impl Server {
     /// correct parser.
     /// If the caller expects a packet of certain type it is provided through `expected`.
     fn read(&mut self, expected: Option<char>) -> Result<HashMap<&str, String>, std::io::Error> {
-        // Allocate a buffer large enough to hold the maximum ICB packet.
-        let mut buffer = [0; 254];
+        // Allocate a buffer large enough to hold two fully sized maximum ICB packets.
+        let mut buffer = [0; 512];
 
-        // Read the data from the network
-        let nbytes = self.sock.as_ref().unwrap().read(&mut buffer)?;
+        // Peek at the incoming data; some packets may show up as a single large buffer
+        // so we need to look at the size of the packet of the data we received.
+        // Then call read_exact() to read that many bytes, parse that data and send it
+        // up the stack.
+        // We know we won't be reading at the middle of an ICB packet because they are
+        // at most 255 bytes in size, our buffer is double that, and we will always start
+        // the connection with a valid packet. Therefore a full ICB packet will always
+        // fit the buffer wherever it's located.
+        let nbytes = self.sock.as_ref().unwrap().peek(&mut buffer)?;
         if nbytes == 0 {
-            return Ok(HashMap::new());
+            // Nothing to peek at.
+            return Ok(hashmap! {"type" => packets::T_INVALID.to_string()});
         }
 
-        // Copy as much data from the network buffer into a vector as the server said
-        // it would send. This is indicated by the first byte of the packet.
-        let packet_len = buffer[0] as usize;
-        q("packet_len", &packet_len)?;
-        let mut message = Vec::<u8>::with_capacity(packet_len - 1);
-
-        // Copy all packet_len bytes (including trailing NUL)
-        for (idx, v) in buffer.iter().enumerate() {
-            if idx == 0 {
-                // Skip the first byte (packet length)
-                continue;
-            } else if idx == packet_len + 1 {
+        // Look for the beginning of the ICB packet. This is the first non-zero byte in the buffer.
+        let mut packet_len = 0;
+        for (i, byte) in buffer.iter().enumerate() {
+            // Skip over empty bytes; the first byte we encounter is the packet size.
+            if *byte != 0 {
+                q("Non-zero byte found with position and value", &(i, byte))?;
+                packet_len = *byte as usize;
                 break;
             }
-
-            message.push(*v);
         }
 
-        q("message", &message)?;
+        if packet_len == 0 {
+            // Still nothing worthwhile found -- bail out.
+            return Ok(hashmap! {"type" => packets::T_INVALID.to_string()});
+        }
+
+        // Allocate a new message vector the size of the packet plus the leading size byte
+        // (which gets stripped later).
+        let mut message = vec![0; packet_len + 1];
+
+        // Now read as much data from the socket as the server has indicated it has sent.
+        self.sock.as_ref().unwrap().read_exact(&mut message)?;
+
+        // Remove the packet size which is stored as packet_len already.
+        message.remove(0);
+
+        q("received message", &message)?;
 
         let packet_type_byte = message[0] as char;
 
@@ -107,7 +126,10 @@ impl Server {
                 q("OK! Received packet of expected type", &t)?;
             }
             Some(t) => {
-                q("FAIL! Mismatch between expectation and result", &(t, packet_type_byte))?;
+                q(
+                    "FAIL! Mismatch between expectation and result",
+                    &(t, packet_type_byte),
+                )?;
                 return Err(std::io::Error::new(
                     ErrorKind::NotFound,
                     "Packet type not found",
@@ -142,7 +164,7 @@ impl Server {
     /// non-blocking before entering a loop where it looks for incoming commands on `msg_r`
     /// which need to be dealt with. Secondly it looks for any ICB traffic that was received.
     pub fn run(&mut self) {
-        // Up to this point blocking reads from the network were fine, now we're going to reqeuire
+        // Up to this point blocking reads from the network were fine, now we're going to require
         // non-blocking reads.
         self.sock
             .as_ref()
@@ -231,8 +253,15 @@ impl Server {
         // At this point we expect a protocol packet.
         if let Ok(v) = self.read(Some(packets::T_PROTOCOL)) {
             q("protocol packet data", &v)?;
-            q("connected to", &(v.get("hostid").unwrap(), v.get("clientid").unwrap()))?;
-            let msg = vec![v["type"].clone(), v["hostid"].clone(), v["clientid"].clone()];
+            q(
+                "connected to",
+                &(v.get("hostid").unwrap(), v.get("clientid").unwrap()),
+            )?;
+            let msg = vec![
+                v["type"].clone(),
+                v["hostid"].clone(),
+                v["clientid"].clone(),
+            ];
             self.msg_s.send(msg).unwrap();
         } else {
             panic!("Expected a protocol packet, which didn't arrive.")

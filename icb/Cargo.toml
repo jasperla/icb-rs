@@ -16,3 +16,4 @@ maintenance = { status = "experimental"  }
 [dependencies]
 crossbeam-channel = "0.4"
 crossbeam-utils = "0.7"
+maplit = "1.0"

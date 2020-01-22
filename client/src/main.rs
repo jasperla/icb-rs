@@ -6,7 +6,7 @@ use std::time::Duration;
 fn main() {
     let config = Config {
         nickname: String::from("jasper"),
-        serverip: "192.168.115.246",
+        serverip: "192.168.115.247",
         port: 7326,
     };
 
