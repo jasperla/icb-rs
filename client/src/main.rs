@@ -26,6 +26,7 @@ fn main() {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
                     packets::T_OPEN => println!("{} <{}> {}", ts, m[1], m[2]),
+                    packets::T_PERSONAL => println!("{} **{}** {}", ts, m[1], m[2]),
                     packets::T_PROTOCOL => println!("==> Connected to {} on {}", m[2], m[1]),
                     packets::T_STATUS => {
                         if m[1] == "Status" {
