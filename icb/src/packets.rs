@@ -3,6 +3,8 @@ use std::str;
 
 use crate::util::q;
 
+/// Not a type indicated by the protocol, but one used in this library.
+pub const T_INVALID: char = '0';
 pub const T_LOGIN: char = 'a';
 pub const T_OPEN: char = 'b';
 pub const T_PERSONAL: char = 'c';
@@ -126,7 +128,18 @@ pub static STATUS: Packet = Packet {
 
 #[allow(unused_variables)]
 fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
-    todo!();
+    let mut iter = packet_buffer_iter(&buffer, len);
+    let mut packet_data = HashMap::new();
+
+    packet_data.insert("type", T_STATUS.to_string());
+
+    let category = str::from_utf8(iter.next().unwrap()).unwrap();
+    let message = str::from_utf8(iter.next().unwrap()).unwrap();
+
+    packet_data.insert("category", category.to_string());
+    packet_data.insert("message", message.to_string());
+
+    packet_data
 }
 
 fn invalid_packet(_fields: Vec<&str>) -> String {
