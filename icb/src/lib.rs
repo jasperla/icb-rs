@@ -7,6 +7,8 @@ use std::net::{Shutdown, TcpStream};
 use std::time::Duration;
 
 pub mod packets;
+mod util;
+use util::q;
 
 /// Messages the client needs to format/display to the user.
 pub type Icbmsg = Vec<String>;
@@ -80,7 +82,7 @@ impl Server {
         // Copy as much data from the network buffer into a vector as the server said
         // it would send. This is indicated by the first byte of the packet.
         let packet_len = buffer[0] as usize;
-        println!("packet_len: {}", packet_len);
+        q("packet_len", &packet_len)?;
         let mut message = Vec::<u8>::with_capacity(packet_len - 1);
 
         // Copy all packet_len bytes (including trailing NUL)
@@ -95,33 +97,33 @@ impl Server {
             message.push(*v);
         }
 
-        println!("message: {:?}", message);
+        q("message", &message)?;
 
         let packet_type_byte = message[0] as char;
 
         match expected {
             Some(t) if (packet_type_byte == t) => {
                 // Caller was expecting a particular type, let's see if we have that.
-                println!("OK! Expected packet of type {} was received", t);
+                q("OK! Received packet of expected type", &t)?;
             }
             Some(t) => {
-                println!("FAIL! You expected {} but I got {}", t, packet_type_byte);
+                q("FAIL! Mismatch between expectation and result", &(t, packet_type_byte))?;
                 return Err(std::io::Error::new(
                     ErrorKind::NotFound,
                     "Packet type not found",
                 ));
             }
             _ => {
-                println!("OK! Nothing was expected, just carry on. ");
+                q("OK! Nothing was expected, just carry on", &())?;
             }
         }
 
         for packet in &packets::PACKETS {
-            println!("Looking for a packet of type: {}", packet_type_byte);
+            q("Looking for a packet of type", &packet_type_byte)?;
             if packet.packet_type == packet_type_byte {
-                println!("Matching packet for {}!", packet_type_byte);
+                q("Matching packet for", &packet_type_byte)?;
                 let data = (packet.parse)(message, packet_len);
-                println!("data = {:?}", data);
+                q("data", &data)?;
 
                 return Ok(data);
             }
@@ -154,7 +156,7 @@ impl Server {
                 // Handle incoming commands sent by the client.
                 match self.cmd_r.try_recv() {
                     Ok(m) if m == Command::Bye => {
-                        println!("Terminating connection to remote host");
+                        q("Terminating connection to remote host", &()).unwrap();
                         self.sock
                             .as_ref()
                             .unwrap()
@@ -163,7 +165,7 @@ impl Server {
                         // XXX: Inform client the connection was closed
                         break;
                     }
-                    Ok(m) => println!("cmd_r: Received unknown command: {:?}", m),
+                    Ok(m) => q("cmd_r: Received unknown command: {:?}", &m).unwrap(),
                     Err(_) => {}
                 }
 
@@ -226,12 +228,8 @@ impl Server {
 
         // At this point we expect a protocol packet.
         if let Ok(v) = self.read(Some(packets::T_PROTOCOL)) {
-            println!("protocol packet data: {:?}", v);
-            println!(
-                "Connected to {}/{}",
-                v.get("hostid").unwrap(),
-                v.get("clientid").unwrap()
-            )
+            q("protocol packet data", &v)?;
+            q("connected to", &(v.get("hostid").unwrap(), v.get("clientid").unwrap()))?;
         } else {
             panic!("Expected a protocol packet, which didn't arrive.")
         }

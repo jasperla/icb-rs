@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::str;
 
+use crate::util::q;
+
 pub const T_LOGIN: char = 'a';
 pub const T_OPEN: char = 'b';
 pub const T_PERSONAL: char = 'c';
@@ -38,7 +40,7 @@ fn packet_create(packet_type: char, fields: Vec<&str>) -> String {
         packet_type,
         data
     );
-    println!("Created payload: {:?}", payload);
+    q("Created payload", &payload).unwrap();
     payload
 }
 
