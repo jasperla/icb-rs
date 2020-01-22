@@ -183,6 +183,8 @@ impl Server {
                             v["message"].clone(),
                         ];
                         self.msg_s.send(msg).unwrap();
+                    } else if v["type"].chars().next().unwrap() == packets::T_STATUS {
+                        q("status packet", &v).unwrap();
                     }
                 }
 
@@ -230,6 +232,8 @@ impl Server {
         if let Ok(v) = self.read(Some(packets::T_PROTOCOL)) {
             q("protocol packet data", &v)?;
             q("connected to", &(v.get("hostid").unwrap(), v.get("clientid").unwrap()))?;
+            let msg = vec![v["type"].clone(), v["hostid"].clone(), v["clientid"].clone()];
+            self.msg_s.send(msg).unwrap();
         } else {
             panic!("Expected a protocol packet, which didn't arrive.")
         }
