@@ -1,5 +1,5 @@
 [package]
-name = "icb-client"
+name = "icbc"
 version = "0.1.0"
 authors = ["Jasper Lievisse Adriaanse <j+rust@jasper.la>"]
 edition = "2018"

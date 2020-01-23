@@ -1,4 +1,4 @@
-name: icb
+name: icbc
 version: "0.1.0"
 author: Jasper Lievisse Adriaanse <j+rust@jasper.la>
 about: ICB client
