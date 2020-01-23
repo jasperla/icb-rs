@@ -1,14 +1,24 @@
 use icb::{packets, Config};
 
+#[macro_use]
+extern crate clap;
+use clap::App;
 use chrono::{Local, Timelike};
 use crossbeam_utils::thread;
 use std::time::Duration;
 
 fn main() {
+    let clap_yaml = load_yaml!("clap.yml");
+    let matches = App::from_yaml(clap_yaml).get_matches();
+
+    let nickname = matches.value_of("nickname").unwrap().to_string();
+    let serverip = matches.value_of("hostname").unwrap().to_string();
+    let port = value_t!(matches, "port", u16).unwrap_or(7326);
+
     let config = Config {
-        nickname: String::from("jasper"),
-        serverip: "192.168.115.247",
-        port: 7326,
+        nickname,
+        serverip,
+        port,
     };
 
     let (client, mut server) = icb::init(config).unwrap();

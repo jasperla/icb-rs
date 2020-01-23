@@ -1,7 +1,7 @@
 [package]
 name = "icb"
-version = "0.1.0"
-authors = ["Jasper Lievisse Adriaanse <j@jasper.la>"]
+version = "0.1.1"
+authors = ["Jasper Lievisse Adriaanse <j+rust@jasper.la>"]
 edition = "2018"
 description = "small library for writing ICB clients"
 repository = "https://github.com/jasperla/icb-rs"

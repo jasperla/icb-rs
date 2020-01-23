@@ -1,0 +1,26 @@
+name: icb
+version: "0.1.0"
+author: Jasper Lievisse Adriaanse <j+rust@jasper.la>
+about: ICB client
+args:
+  - hostname:
+      short: H
+      long: hostname
+      value_name: HOSTNAME
+      help: Server IP
+      takes_value: true
+      required: true
+      default_value: "localhost"
+  - nickname:
+      short: n
+      value_name: NICKNAME
+      help: Nickname to connect with
+      takes_value: true
+      required: true
+      default_value: "icb"
+  - port:
+      short: p
+      value_name: PORT
+      help: Port to connect to on remote server
+      takes_value: true
+      default_value: "7326"
