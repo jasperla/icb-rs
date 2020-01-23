@@ -28,15 +28,16 @@ fn main() {
                     packets::T_OPEN => println!("{} <{}> {}", ts, m[1], m[2]),
                     packets::T_PERSONAL => println!("{} **{}** {}", ts, m[1], m[2]),
                     packets::T_PROTOCOL => println!("==> Connected to {} on {}", m[2], m[1]),
-                    packets::T_STATUS => {
-                        match m[1].as_str() {
-                            "Status" | "Name" => println!("{}: {} ", ts, m[2]),
-                            _ => {
-                                // What categories other than "Status" can we expect?
-                                println!("=> {}", m[2])
-                            }
+                    packets::T_STATUS => match m[1].as_str() {
+                        "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
+                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
+                            println!("{}: {} ", ts, m[2])
                         }
-                    }
+                        _ => println!(
+                            "=> Message '{}' received in unknown category '{}'",
+                            m[2], m[1]
+                        ),
+                    },
                     _ => println!("msg_r: {} read: {:?}", ts, m),
                 }
             }
