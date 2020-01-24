@@ -122,8 +122,7 @@ fn main() -> Result<(), failure::Error> {
                     let history = ui
                         .history
                         .iter()
-                        .enumerate()
-                        .map(|(i, m)| Text::raw(format!("{}: {}", i, m)));
+                        .map(|i| Text::raw(format!("{}", i)));
                     List::new(history)
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[1]);
