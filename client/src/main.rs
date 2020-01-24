@@ -70,34 +70,34 @@ fn main() -> Result<(), failure::Error> {
             server.run();
         });
 
-        s.spawn(|_| loop {
+        loop {
+            // Handle any communication with the backend before drawing the next screen.
             if let Ok(m) = client.msg_r.try_recv() {
                 let now = Local::now();
                 let ts = format!("{:02}:{:02}", now.hour(), now.minute());
 
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
-                    packets::T_OPEN => println!("{} <{}> {}", ts, m[1], m[2]),
-                    packets::T_PERSONAL => println!("{} **{}** {}", ts, m[1], m[2]),
-                    packets::T_PROTOCOL => println!("==> Connected to {} on {}", m[2], m[1]),
+                    packets::T_OPEN => ui.history.push(format!("{} <{}> {}", ts, m[1], m[2])),
+                    packets::T_PERSONAL => ui.history.push(format!("{} **{}** {}", ts, m[1], m[2])),
+                    packets::T_PROTOCOL => ui
+                        .history
+                        .push(format!("==> Connected to {} on {}", m[2], m[1])),
                     packets::T_STATUS => match m[1].as_str() {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
                         | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
-                            println!("{}: {} ", ts, m[2])
+                            ui.history.push(format!("{}: {} ", ts, m[2]))
                         }
-                        _ => println!(
+                        _ => ui.history.push(format!(
                             "=> Message '{}' received in unknown category '{}'",
                             m[2], m[1]
-                        ),
+                        )),
                     },
-                    _ => println!("msg_r: {} read: {:?}", ts, m),
+                    _ => ui.history.push(format!("msg_r: {} read: {:?}", ts, m)),
                 }
             }
-
             std::thread::sleep(Duration::from_millis(1));
-        });
 
-        loop {
             terminal
                 .draw(|mut f| {
                     let chunks = Layout::default()
