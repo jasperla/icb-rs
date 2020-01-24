@@ -284,7 +284,13 @@ pub fn init(config: Config) -> Result<(Client, Server), std::io::Error> {
     let (msg_s, msg_r) = unbounded();
     let (cmd_s, cmd_r) = unbounded();
 
-    let mut server = Server::new(&config.serverip, config.port, &config.nickname, cmd_r, msg_s);
+    let mut server = Server::new(
+        &config.serverip,
+        config.port,
+        &config.nickname,
+        cmd_r,
+        msg_s,
+    );
     server.connect()?;
     server.login()?;
 
