@@ -9,6 +9,7 @@ use clap::App;
 use crossbeam_utils::thread;
 use icb::{packets, Config};
 use std::io::{self, Write};
+use std::process::exit;
 use std::time::Duration;
 use termion::cursor::Goto;
 use termion::event::Key;
@@ -93,6 +94,7 @@ fn main() -> Result<(), failure::Error> {
                             m[2], m[1]
                         )),
                     },
+                    // XXX: should handle "\x18eNick is already in use\x00" too
                     _ => ui.history.push(format!("msg_r: {} read: {:?}", ts, m)),
                 }
             }
@@ -119,10 +121,10 @@ fn main() -> Result<(), failure::Error> {
                         .style(Style::default().fg(Color::Yellow))
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
-                    let history = ui
-                        .history
-                        .iter()
-                        .map(|i| Text::raw(format!("{}", i)));
+                    // XXX: Only the last items that fit onto the screen
+                    // XXX: using pageup/pagedown should allow for scrolling through
+                    //      the history too.
+                    let history = ui.history.iter().map(|i| Text::raw(format!("{}", i)));
                     List::new(history)
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[1]);
@@ -156,7 +158,10 @@ fn main() -> Result<(), failure::Error> {
                         match ui.input.chars().next() {
                             Some(v) if v == '/' => {
                                 if ui.input == "/quit" {
-                                    break;
+                                    // Use a hammer to quit, ICB doesn't provide a clean way to
+                                    // disconnect anyway other than terminating the conneciton.
+                                    io::stdout().flush().ok();
+                                    exit(0);
                                 }
                                 // XXX: Handle other commands here
                             }
