@@ -16,4 +16,8 @@ maintenance = { status = "experimental" }
 chrono = "0.4"
 clap =  { version = "2", features = ["yaml"] }
 crossbeam-utils = "0.7"
+failure = "0.1"
 icb = { path = "../icb", version = "0.1" }
+termion = "1"
+tui = { version = "0.8.0", features = ["termion"] }
+unicode-width = "0.1"
