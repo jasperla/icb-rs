@@ -11,6 +11,7 @@ use icb::{packets, Command, Config};
 use std::io::{self, Write};
 use std::process::exit;
 use std::time::Duration;
+use termion::clear;
 use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -37,6 +38,7 @@ impl Default for Ui {
     }
 }
 
+/// Create a timestamp for 'now', returned as 'HH:MM'.
 fn timestamp() -> String {
     let now = Local::now();
     format!("{:02}:{:02}", now.hour(), now.minute())
@@ -70,6 +72,8 @@ fn main() -> Result<(), failure::Error> {
 
     // ...and finally create the default UI state
     let mut ui = Ui::default();
+
+    println!("{}", clear::All);
 
     thread::scope(|s| {
         s.spawn(|_| {
@@ -110,6 +114,8 @@ fn main() -> Result<(), failure::Error> {
             }
             std::thread::sleep(Duration::from_millis(1));
 
+            let termsize = terminal.size().unwrap();
+
             terminal
                 .draw(|mut f| {
                     let chunks = Layout::default()
@@ -131,17 +137,27 @@ fn main() -> Result<(), failure::Error> {
                         .style(Style::default().fg(Color::Yellow))
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
-                    // XXX: Only the last items that fit onto the screen
                     // XXX: using pageup/pagedown should allow for scrolling through
                     //      the history too.
-                    let history = ui.history.iter().map(|i| Text::raw(format!("{}", i)));
+                    let max_history_len = termsize.height
+                        - 1  // chunks[0],
+                        - 2  // chunk[1] + border
+                        - 2; // chunks[2] + border
+                    // Get the full history and take as many entries from the end as we can fit
+                    // in the history pane of the window.
+                    let history = ui
+                        .history
+                        .iter()
+                        .rev()
+                        .take(max_history_len as usize)
+                        .rev()
+                        .map(|i| Text::raw(format!("{}", i)));
                     List::new(history)
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[1]);
                 })
                 .expect("Failed to draw UI to terminal");
 
-            let termsize = terminal.size().unwrap();
             // Put the cursor back inside the input box
             write!(
                 terminal.backend_mut(),
