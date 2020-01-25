@@ -24,6 +24,7 @@ pub struct Config {
     pub serverip: String,
     pub nickname: String,
     pub port: u16,
+    pub group: String,
 }
 
 /// Commands a `Client` can send to the `Server` through the `cmd` channels.
@@ -52,6 +53,7 @@ pub struct Server {
     cmd_r: Receiver<Command>,
     msg_s: Sender<Icbmsg>,
     nickname: String,
+    group: String,
 }
 
 impl Server {
@@ -61,6 +63,7 @@ impl Server {
         nickname: &str,
         cmd_r: Receiver<Command>,
         msg_s: Sender<Icbmsg>,
+        group: &str,
     ) -> Server {
         Server {
             hostname: hostname.to_string(),
@@ -69,6 +72,7 @@ impl Server {
             msg_s,
             nickname: nickname.to_string(),
             sock: None,
+            group: group.to_string(),
         }
     }
 
@@ -245,7 +249,7 @@ impl Server {
         let login_packet = (packets::LOGIN.create)(vec![
             self.nickname.as_str(),
             self.nickname.as_str(),
-            "1",
+            self.group.as_str(),
             "login",
         ]);
 
@@ -304,6 +308,7 @@ pub fn init(config: Config) -> Result<(Client, Server), std::io::Error> {
         &config.nickname,
         cmd_r,
         msg_s,
+        &config.group,
     );
     server.connect()?;
     server.login()?;

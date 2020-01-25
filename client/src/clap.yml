@@ -24,3 +24,9 @@ args:
       help: Port to connect to on remote server
       takes_value: true
       default_value: "7326"
+  - group:
+      short: g
+      value_name: GROUP
+      help: Group to join
+      takes_value: true
+      default_value: "1"

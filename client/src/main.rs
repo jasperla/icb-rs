@@ -19,7 +19,6 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
-use tui::style::{Color, Style};
 use tui::widgets::{Block, Borders, List, Paragraph, Text, Widget};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
@@ -51,11 +50,13 @@ fn main() -> Result<(), failure::Error> {
     let nickname = matches.value_of("nickname").unwrap().to_string();
     let serverip = matches.value_of("hostname").unwrap().to_string();
     let port = value_t!(matches, "port", u16).unwrap_or(7326);
+    let group = matches.value_of("group").unwrap().to_string();
 
     let config = Config {
         nickname,
         serverip,
         port,
+        group,
     };
 
     let (client, mut server) = icb::init(config).unwrap();
@@ -131,10 +132,11 @@ fn main() -> Result<(), failure::Error> {
                         )
                         .split(f.size());
 
-                    let help_message = format!("Group: 1, Topic: carrots and peas");
+                    // XXX: Keep track of the current group and topic
+                    //let help_message = format!("Group: 1, Topic: carrots and peas");
+                    let help_message = String::new();
                     Paragraph::new([Text::raw(help_message)].iter()).render(&mut f, chunks[0]);
                     Paragraph::new([Text::raw(&ui.input)].iter())
-                        .style(Style::default().fg(Color::Yellow))
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
                     // XXX: using pageup/pagedown should allow for scrolling through
