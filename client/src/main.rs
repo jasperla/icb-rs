@@ -177,7 +177,7 @@ fn main() -> Result<(), failure::Error> {
                         ui.input.pop();
                     }
                     Key::Ctrl(c) => match c {
-                        'w' => ui.input.clear(),
+                        'w' => ui.input.clear(), // XXX: should only remove the last word
                         'a' => {} // XXX move cursor to beginning
                         'e' => {} // XXX move cursor to end.
                         _ => {}

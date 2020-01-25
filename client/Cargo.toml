@@ -1,6 +1,6 @@
 [package]
 name = "icbc"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jasper Lievisse Adriaanse <j+rust@jasper.la>"]
 edition = "2018"
 description = "minimalistic ICB client"
@@ -17,7 +17,7 @@ chrono = "0.4"
 clap =  { version = "2", features = ["yaml"] }
 crossbeam-utils = "0.7"
 failure = "0.1"
-icb = { path = "../icb", version = "0.1" }
+icb = { path = "../icb", version = "0.2" }
 termion = "1"
 tui = { version = "0.8.0", features = ["termion"] }
 unicode-width = "0.1"

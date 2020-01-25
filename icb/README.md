@@ -12,7 +12,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-icb = "0.1"
+icb = "0.2"
 ```
 
 In your `main.rs` or `lib.rs` you'll want to provide the connection parameters through
@@ -32,6 +32,7 @@ fn main() {
         nickname: String::from("jasper"),
         serverip: "192.168.115.245",
         port: 7326,
+	group: "slackers",
     };
 
     let (client, mut server) = icb::init(config).unwrap();
