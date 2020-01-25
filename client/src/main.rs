@@ -7,7 +7,7 @@ extern crate clap;
 use chrono::{Local, Timelike};
 use clap::App;
 use crossbeam_utils::thread;
-use icb::{packets, Config};
+use icb::{packets, Command, Config};
 use std::io::{self, Write};
 use std::process::exit;
 use std::time::Duration;
@@ -35,6 +35,11 @@ impl Default for Ui {
             history: Vec::new(),
         }
     }
+}
+
+fn timestamp() -> String {
+    let now = Local::now();
+    format!("{:02}:{:02}", now.hour(), now.minute())
 }
 
 fn main() -> Result<(), failure::Error> {
@@ -74,20 +79,23 @@ fn main() -> Result<(), failure::Error> {
         loop {
             // Handle any communication with the backend before drawing the next screen.
             if let Ok(m) = client.msg_r.try_recv() {
-                let now = Local::now();
-                let ts = format!("{:02}:{:02}", now.hour(), now.minute());
-
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
-                    packets::T_OPEN => ui.history.push(format!("{} <{}> {}", ts, m[1], m[2])),
-                    packets::T_PERSONAL => ui.history.push(format!("{} **{}** {}", ts, m[1], m[2])),
+                    packets::T_OPEN => {
+                        ui.history
+                            .push(format!("{} <{}> {}", timestamp(), m[1], m[2]))
+                    }
+                    packets::T_PERSONAL => {
+                        ui.history
+                            .push(format!("{} **{}** {}", timestamp(), m[1], m[2]))
+                    }
                     packets::T_PROTOCOL => ui
                         .history
                         .push(format!("==> Connected to {} on {}", m[2], m[1])),
                     packets::T_STATUS => match m[1].as_str() {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
                         | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
-                            ui.history.push(format!("{}: {} ", ts, m[2]))
+                            ui.history.push(format!("{}: {} ", timestamp(), m[2]))
                         }
                         _ => ui.history.push(format!(
                             "=> Message '{}' received in unknown category '{}'",
@@ -95,7 +103,9 @@ fn main() -> Result<(), failure::Error> {
                         )),
                     },
                     // XXX: should handle "\x18eNick is already in use\x00" too
-                    _ => ui.history.push(format!("msg_r: {} read: {:?}", ts, m)),
+                    _ => ui
+                        .history
+                        .push(format!("msg_r: {} read: {:?}", timestamp(), m)),
                 }
             }
             std::thread::sleep(Duration::from_millis(1));
@@ -165,7 +175,17 @@ fn main() -> Result<(), failure::Error> {
                                 }
                                 // XXX: Handle other commands here
                             }
-                            _ => ui.history.push(ui.input.drain(..).collect()),
+                            _ => {
+                                let msg_text: String = ui.input.drain(..).collect();
+
+                                let msg = Command::Open(msg_text.clone());
+                                client.cmd_s.send(msg).unwrap();
+
+                                // Send our own messages into the history as well as the server
+                                // won't echo them back to us.
+                                ui.history.push(format!("{}: {}", timestamp(), msg_text));
+                                ui.input.clear();
+                            }
                         }
                     }
                     Key::Char(c) => {

@@ -160,9 +160,8 @@ fn open_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, Strin
     }
 }
 
-#[allow(unused_variables)]
 fn open_packet_create(fields: Vec<&str>) -> String {
-    todo!();
+    packet_create(T_OPEN, fields)
 }
 
 /// Personal message packet (direct chats)

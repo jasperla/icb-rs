@@ -32,6 +32,7 @@ pub enum Command {
     /// Terminate the connection to the remote server. ICB doesn't have a way to
     /// perform a clean disconnect other than shutting down the socket.
     Bye,
+    Open(String),
 }
 
 /// Representation of the client/user state.
@@ -179,17 +180,30 @@ impl Server {
             s.spawn(|_| loop {
                 // Handle incoming commands sent by the client.
                 match self.cmd_r.try_recv() {
-                    Ok(m) if m == Command::Bye => {
-                        q("Terminating connection to remote host", &()).unwrap();
-                        self.sock
-                            .as_ref()
-                            .unwrap()
-                            .shutdown(Shutdown::Both)
-                            .unwrap();
-                        // XXX: Inform client the connection was closed
-                        break;
+                    Ok(m) => {
+                        match m {
+                            Command::Bye => {
+                                q("Terminating connection to remote host", &()).unwrap();
+                                self.sock
+                                    .as_ref()
+                                    .unwrap()
+                                    .shutdown(Shutdown::Both)
+                                    .unwrap();
+                                // XXX: Inform client the connection was closed
+                                break;
+                            }
+                            Command::Open(msg) => {
+                                q("Sending message to chnnale", &msg).unwrap();
+                                let packet = (packets::OPEN.create)(vec![msg.as_str()]);
+                                self.sock
+                                    .as_ref()
+                                    .unwrap()
+                                    .write_all(packet.as_bytes())
+                                    .unwrap();
+                            }
+                            _ => q("cmd_r: Received unknown command", &(m)).unwrap(),
+                        }
                     }
-                    Ok(m) => q("cmd_r: Received unknown command: {:?}", &m).unwrap(),
                     Err(_) => {}
                 }
 
