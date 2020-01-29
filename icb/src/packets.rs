@@ -10,6 +10,7 @@ pub const T_OPEN: char = 'b';
 pub const T_PERSONAL: char = 'c';
 pub const T_STATUS: char = 'd';
 pub const T_ERROR: char = 'e';
+pub const T_COMMAND: char = 'h';
 pub const T_PROTOCOL: char = 'j';
 
 // Generic packet creator. Should really be trait method...
@@ -71,7 +72,7 @@ pub struct Packet {
 }
 
 /// These are all the valid packet types we know of.
-pub static PACKETS: [&Packet; 5] = [&LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL];
+pub static PACKETS: [&Packet; 6] = [&LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL, &COMMAND];
 
 /// Login packet, used to join the initial channel after connecting
 pub static LOGIN: Packet = Packet {
@@ -191,7 +192,50 @@ fn personal_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, S
     }
 }
 
+/// Command packet
+pub static COMMAND: Packet = Packet {
+    packet_type: T_COMMAND,
+    parse: invalid_packet_parse,
+    create: command_packet_create,
+};
+
 #[allow(unused_variables)]
-fn personal_packet_create(fields: Vec<&str>) -> String {
-    todo!();
+/// Create a new command packet. Based on the icbd server implementation the following
+/// commands can be issued:
+///   "?"      -- help
+///   "beep"   -- beep
+///   "boot"   -- boot
+///   "g"      -- change group
+///   "m"      -- personal message
+///   "msg"    -- personal message
+///   "name"   -- change name
+///   "nobeep" -- disable beep
+///   "pass"   -- pass moderator
+///   "topic"  -- set topic
+///   "w"      -- list users
+pub const CMD_HELP: &str = "?";
+pub const CMD_BEEP: &str = "beep";
+pub const CMD_BOOT: &str = "boot";
+pub const CMD_G: &str = "g";
+pub const CMD_M: &str = "m";
+pub const CMD_MSG: &str = "msg";
+pub const CMD_NAME: &str = "name";
+pub const CMD_NOBEEP: &str = "nobeep";
+pub const CMD_PASS: &str = "pass";
+pub const CMD_TOPIC: &str = "topic";
+pub const CMD_W: &str = "w";
+
+fn command_packet_create(fields: Vec<&str>) -> String {
+    let all_cmds = vec![CMD_M, CMD_MSG];
+
+    let cmd = fields[0].clone();
+
+    if all_cmds
+        .into_iter()
+        .any(|supported_cmd| supported_cmd == cmd)
+    {
+        packet_create(T_COMMAND, fields)
+    } else {
+        panic!("Command {} not support (yet)!", cmd);
+    }
 }
