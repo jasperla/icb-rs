@@ -26,13 +26,17 @@ use unicode_width::UnicodeWidthStr;
 struct Ui {
     input: String,
     history: Vec<String>,
+    user_history: Vec<String>,
 }
 
 impl Default for Ui {
     fn default() -> Ui {
         Ui {
             input: String::new(),
+            // History as shown (includes everything that happened in the group)
             history: Vec::new(),
+            // What the user has sent so far
+            user_history: Vec::with_capacity(100),
         }
     }
 }
@@ -75,6 +79,8 @@ fn main() -> Result<(), failure::Error> {
     let mut ui = Ui::default();
 
     println!("{}", clear::All);
+
+    let mut hist_offset = 0;
 
     thread::scope(|s| {
         s.spawn(|_| {
@@ -182,7 +188,38 @@ fn main() -> Result<(), failure::Error> {
                         'e' => {}                // XXX move cursor to end.
                         _ => {}
                     },
+                    Key::Up => {
+                        // Replace the current line with the entry in the user_history vector at
+                        // the offset hist_offset, counted from the end.
+                        hist_offset += 1;
+                        let hist_len = ui.user_history.len();
+
+                        if (hist_offset > hist_len) || (hist_len == 0) {
+                            continue;
+                        }
+
+                        ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                    }
+                    Key::Down => {
+                        // Do the same as for the Up key, but in reverse. Take care not to
+                        // make the offset negative. If the offset would become zero, just
+                        // clear the input field.
+                        let hist_len = ui.user_history.len();
+                        if hist_offset == 0 || hist_len == 0 {
+                            continue;
+                        } else if hist_offset == 1 {
+                            ui.input.drain(..);
+                            continue;
+                        }
+
+                        hist_offset -= 1;
+
+                        ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                    }
                     Key::Char('\n') => {
+                        // Reset the position in the user_history buffer.
+                        hist_offset = 0;
+
                         match ui.input.chars().next() {
                             Some(v) if v == '/' => {
                                 let input: Vec<_> = ui.input.split_whitespace().collect();
@@ -212,6 +249,10 @@ fn main() -> Result<(), failure::Error> {
                                         msg_text.clone(),
                                     );
                                     client.cmd_s.send(msg).unwrap();
+
+                                    // Record the normalized command
+                                    ui.user_history
+                                        .push(format!("{} {} {}", cmd, recipient, msg_text));
                                     ui.history.push(format!(
                                         "{}: -> {}: {}",
                                         timestamp(),
@@ -232,6 +273,7 @@ fn main() -> Result<(), failure::Error> {
                                 // Send our own messages into the history as well as the server
                                 // won't echo them back to us.
                                 ui.history.push(format!("{}: {}", timestamp(), msg_text));
+                                ui.user_history.push(msg_text);
                                 ui.input.clear();
                             }
                         }

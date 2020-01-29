@@ -219,7 +219,6 @@ impl Server {
                                 .write_all(packet.as_bytes())
                                 .unwrap();
                         }
-                        _ => q("cmd_r: Received unknown command", &(m)).unwrap(),
                     }
                 }
 
