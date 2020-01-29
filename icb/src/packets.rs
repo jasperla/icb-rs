@@ -46,6 +46,18 @@ fn packet_create(packet_type: char, fields: Vec<&str>) -> String {
     payload
 }
 
+#[allow(unused_variables)]
+fn invalid_packet_create(_fields: Vec<&str>) -> String {
+    panic!("You're attempting to create a packet you're not allowed to send to a server");
+}
+
+#[allow(unused_variables)]
+fn invalid_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+    panic!(
+        "You're attempting to parse a packet that is not valid for a server to send to a client"
+    );
+}
+
 /// A Packet contains an identifier of the packet type and the functions responsible for creating a
 /// packet (create) and for parsing one (parse).
 pub struct Packet {
@@ -119,10 +131,9 @@ fn protocol_packet_create(fields: Vec<&str>) -> String {
 pub static STATUS: Packet = Packet {
     packet_type: T_STATUS,
     parse: status_packet_parse,
-    create: invalid_packet,
+    create: invalid_packet_create,
 };
 
-#[allow(unused_variables)]
 fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
@@ -134,10 +145,6 @@ fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, Str
         "category" => category.to_string(),
         "message" => message.to_string(),
     }
-}
-
-fn invalid_packet(_fields: Vec<&str>) -> String {
-    panic!("Attempting to create a packet that's only valid for a remote server to send");
 }
 
 /// Open packet (normal chats)
@@ -168,7 +175,7 @@ fn open_packet_create(fields: Vec<&str>) -> String {
 pub static PERSONAL: Packet = Packet {
     packet_type: T_PERSONAL,
     parse: personal_packet_parse,
-    create: personal_packet_create,
+    create: invalid_packet_create,
 };
 
 fn personal_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {

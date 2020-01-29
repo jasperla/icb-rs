@@ -33,6 +33,7 @@ pub enum Command {
     /// Terminate the connection to the remote server. ICB doesn't have a way to
     /// perform a clean disconnect other than shutting down the socket.
     Bye,
+    /// Send a message to the group.
     Open(String),
 }
 
@@ -197,7 +198,7 @@ impl Server {
                                 break;
                             }
                             Command::Open(msg) => {
-                                q("Sending message to chnnale", &msg).unwrap();
+                                q("Sending message to channel", &msg).unwrap();
                                 let packet = (packets::OPEN.create)(vec![msg.as_str()]);
                                 self.sock
                                     .as_ref()

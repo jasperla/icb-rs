@@ -144,6 +144,7 @@ fn main() -> Result<(), failure::Error> {
                         - 1  // chunks[0],
                         - 2  // chunk[1] + border
                         - 2; // chunks[2] + border
+
                     // Get the full history and take as many entries from the end as we can fit
                     // in the history pane of the window.
                     let history = ui
@@ -177,8 +178,8 @@ fn main() -> Result<(), failure::Error> {
                     }
                     Key::Ctrl(c) => match c {
                         'w' => ui.input.clear(), // XXX: should only remove the last word
-                        'a' => {} // XXX move cursor to beginning
-                        'e' => {} // XXX move cursor to end.
+                        'a' => {}                // XXX move cursor to beginning
+                        'e' => {}                // XXX move cursor to end.
                         _ => {}
                     },
                     Key::Char('\n') => {
