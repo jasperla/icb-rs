@@ -56,7 +56,7 @@ fn main() -> Result<(), failure::Error> {
         nickname,
         serverip,
         port,
-        group,
+        group: group.clone(),
     };
 
     let (client, mut server) = icb::init(config).unwrap();
@@ -133,8 +133,7 @@ fn main() -> Result<(), failure::Error> {
                         .split(f.size());
 
                     // XXX: Keep track of the current group and topic
-                    //let help_message = format!("Group: 1, Topic: carrots and peas");
-                    let help_message = String::new();
+                    let help_message = format!("Group: {}", group);
                     Paragraph::new([Text::raw(help_message)].iter()).render(&mut f, chunks[0]);
                     Paragraph::new([Text::raw(&ui.input)].iter())
                         .block(Block::default().borders(Borders::TOP))
