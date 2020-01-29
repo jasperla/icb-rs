@@ -185,11 +185,41 @@ fn main() -> Result<(), failure::Error> {
                     Key::Char('\n') => {
                         match ui.input.chars().next() {
                             Some(v) if v == '/' => {
-                                if ui.input == "/quit" {
+                                let input: Vec<_> = ui.input.split_whitespace().collect();
+                                let cmd = input[0];
+
+                                if cmd == "/quit" {
                                     // Use a hammer to quit, ICB doesn't provide a clean way to
                                     // disconnect anyway other than terminating the conneciton.
                                     io::stdout().flush().ok();
                                     exit(0);
+                                }
+
+                                if (cmd == "/msg" || cmd == "/m") && input.len() > 2 {
+                                    let recipient = input[1];
+
+                                    // Now take the text the user has entered and remove the first
+                                    // occurences of the command and recipient. We explicitly don't
+                                    // use `input` as we may lose any duplicate whitespace the sender has
+                                    // inserted, but remove the space after the recipient name.
+                                    let msg_text: String = ui.input.replacen(cmd, "", 1).replacen(
+                                        format!(" {} ", recipient).as_str(),
+                                        "",
+                                        1,
+                                    );
+                                    let msg = Command::Personal(
+                                        recipient.to_string().clone(),
+                                        msg_text.clone(),
+                                    );
+                                    client.cmd_s.send(msg).unwrap();
+                                    ui.history.push(format!(
+                                        "{}: -> {}: {}",
+                                        timestamp(),
+                                        recipient,
+                                        msg_text
+                                    ));
+
+                                    ui.input.drain(..);
                                 }
                                 // XXX: Handle other commands here
                             }
