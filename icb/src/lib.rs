@@ -35,6 +35,9 @@ pub enum Command {
     Bye,
     /// Send a message to the group.
     Open(String),
+    /// Send a personal message to a user.
+    /// First parameter is the username, second is the message text.
+    Personal(String, String),
 }
 
 /// Representation of the client/user state.
@@ -200,6 +203,17 @@ impl Server {
                             Command::Open(msg) => {
                                 q("Sending message to channel", &msg).unwrap();
                                 let packet = (packets::OPEN.create)(vec![msg.as_str()]);
+                                self.sock
+                                    .as_ref()
+                                    .unwrap()
+                                    .write_all(packet.as_bytes())
+                                    .unwrap();
+                            }
+                            Command::Personal(recipient, msg) => {
+                                let packet = (packets::COMMAND.create)(vec![
+                                    packets::CMD_MSG,
+                                    format!("{} {}", recipient, msg).as_str(),
+                                ]);
                                 self.sock
                                     .as_ref()
                                     .unwrap()
