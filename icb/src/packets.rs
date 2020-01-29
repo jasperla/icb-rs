@@ -228,7 +228,7 @@ pub const CMD_W: &str = "w";
 fn command_packet_create(fields: Vec<&str>) -> String {
     let all_cmds = vec![CMD_M, CMD_MSG];
 
-    let cmd = fields[0].clone();
+    let cmd = fields[0];
 
     if all_cmds
         .into_iter()

@@ -187,43 +187,40 @@ impl Server {
         thread::scope(|s| {
             s.spawn(|_| loop {
                 // Handle incoming commands sent by the client.
-                match self.cmd_r.try_recv() {
-                    Ok(m) => {
-                        match m {
-                            Command::Bye => {
-                                q("Terminating connection to remote host", &()).unwrap();
-                                self.sock
-                                    .as_ref()
-                                    .unwrap()
-                                    .shutdown(Shutdown::Both)
-                                    .unwrap();
-                                // XXX: Inform client the connection was closed
-                                break;
-                            }
-                            Command::Open(msg) => {
-                                q("Sending message to channel", &msg).unwrap();
-                                let packet = (packets::OPEN.create)(vec![msg.as_str()]);
-                                self.sock
-                                    .as_ref()
-                                    .unwrap()
-                                    .write_all(packet.as_bytes())
-                                    .unwrap();
-                            }
-                            Command::Personal(recipient, msg) => {
-                                let packet = (packets::COMMAND.create)(vec![
-                                    packets::CMD_MSG,
-                                    format!("{} {}", recipient, msg).as_str(),
-                                ]);
-                                self.sock
-                                    .as_ref()
-                                    .unwrap()
-                                    .write_all(packet.as_bytes())
-                                    .unwrap();
-                            }
-                            _ => q("cmd_r: Received unknown command", &(m)).unwrap(),
+                if let Ok(m) = self.cmd_r.try_recv() {
+                    match m {
+                        Command::Bye => {
+                            q("Terminating connection to remote host", &()).unwrap();
+                            self.sock
+                                .as_ref()
+                                .unwrap()
+                                .shutdown(Shutdown::Both)
+                                .unwrap();
+                            // XXX: Inform client the connection was closed
+                            break;
                         }
+                        Command::Open(msg) => {
+                            q("Sending message to channel", &msg).unwrap();
+                            let packet = (packets::OPEN.create)(vec![msg.as_str()]);
+                            self.sock
+                                .as_ref()
+                                .unwrap()
+                                .write_all(packet.as_bytes())
+                                .unwrap();
+                        }
+                        Command::Personal(recipient, msg) => {
+                            let packet = (packets::COMMAND.create)(vec![
+                                packets::CMD_MSG,
+                                format!("{} {}", recipient, msg).as_str(),
+                            ]);
+                            self.sock
+                                .as_ref()
+                                .unwrap()
+                                .write_all(packet.as_bytes())
+                                .unwrap();
+                        }
+                        _ => q("cmd_r: Received unknown command", &(m)).unwrap(),
                     }
-                    Err(_) => {}
                 }
 
                 // Handle incoming ICB packets, based on the type we'll determine
