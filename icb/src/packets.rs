@@ -12,6 +12,7 @@ pub const T_STATUS: char = 'd';
 pub const T_ERROR: char = 'e';
 pub const T_COMMAND: char = 'h';
 pub const T_PROTOCOL: char = 'j';
+pub const T_BEEP: char = 'k';
 
 // Generic packet creator. Should really be trait method...
 // That way we can rework all the packets functions below as implementations
@@ -72,7 +73,9 @@ pub struct Packet {
 }
 
 /// These are all the valid packet types we know of.
-pub static PACKETS: [&Packet; 6] = [&LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL, &COMMAND];
+pub static PACKETS: [&Packet; 7] = [
+    &LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL, &COMMAND, &BEEP,
+];
 
 /// Login packet, used to join the initial channel after connecting
 pub static LOGIN: Packet = Packet {
@@ -226,12 +229,30 @@ pub const CMD_TOPIC: &str = "topic";
 pub const CMD_W: &str = "w";
 
 fn command_packet_create(fields: Vec<&str>) -> String {
-    let all_cmds = vec![CMD_M, CMD_MSG];
+    let all_cmds = vec![CMD_BEEP, CMD_M, CMD_MSG];
     let cmd = fields[0];
 
     if all_cmds.contains(&cmd) {
         packet_create(T_COMMAND, fields)
     } else {
         panic!("Command {} not support (yet)!", cmd);
+    }
+}
+
+/// Beep beep
+pub static BEEP: Packet = Packet {
+    packet_type: T_BEEP,
+    parse: beep_packet_parse,
+    create: invalid_packet_create,
+};
+
+fn beep_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+    let mut iter = packet_buffer_iter(&buffer, len);
+
+    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
+
+    hashmap! {
+        "type" => T_BEEP.to_string(),
+        "nickname" => nickname.to_string(),
     }
 }

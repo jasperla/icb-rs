@@ -1,6 +1,7 @@
-# 0.x.y (unreleased)
+# 0.x.y (not yet released)
 
 - navigate the current input with left/right arrow keys as well as CTRL+a/e
+- implement sending and receiving `beep` messages
 
 # 0.2.1
 

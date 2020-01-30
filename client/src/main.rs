@@ -114,6 +114,10 @@ fn main() -> Result<(), failure::Error> {
                             m[2], m[1]
                         )),
                     },
+                    packets::T_BEEP => {
+                        ui.history
+                            .push(format!("{} *{} beeps you*", timestamp(), m[1]))
+                    }
                     // XXX: should handle "\x18eNick is already in use\x00" too
                     _ => ui
                         .history
@@ -256,9 +260,7 @@ fn main() -> Result<(), failure::Error> {
                                     // disconnect anyway other than terminating the conneciton.
                                     io::stdout().flush().ok();
                                     exit(0);
-                                }
-
-                                if (cmd == "/msg" || cmd == "/m") && input.len() > 2 {
+                                } else if (cmd == "/msg" || cmd == "/m") && input.len() > 2 {
                                     let recipient = input[1];
 
                                     // Now take the text the user has entered and remove the first
@@ -287,8 +289,20 @@ fn main() -> Result<(), failure::Error> {
                                     ));
 
                                     ui.input.drain(..);
+                                } else if cmd == "/beep" && input.len() == 2 {
+                                    let recipient = input[1];
+
+                                    let msg = Command::Beep(recipient.to_string().clone());
+                                    client.cmd_s.send(msg).unwrap();
+
+                                    ui.user_history.push(format!("{} {}", cmd, recipient));
+                                    ui.history.push(format!(
+                                        "{}: *beep beep, {}*",
+                                        timestamp(),
+                                        recipient
+                                    ));
+                                    ui.input.drain(..);
                                 }
-                                // XXX: Handle other commands here
                             }
                             _ => {
                                 let msg_text: String = ui.input.drain(..).collect();
