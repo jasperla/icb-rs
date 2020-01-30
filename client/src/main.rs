@@ -164,7 +164,7 @@ fn main() -> Result<(), failure::Error> {
                         .rev()
                         .take(max_history_len as usize)
                         .rev()
-                        .map(|i| Text::raw(format!("{}", i)));
+                        .map(|i| Text::raw(i.to_string()));
                     List::new(history)
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[1]);
@@ -185,8 +185,8 @@ fn main() -> Result<(), failure::Error> {
 
             // Now read the user input, these could be control actions such as backspace,
             // commands (starting with '/') or actual messages intended for other users.
-            match events.next().expect("Failed to read user input") {
-                Event::Input(input) => match input {
+            if let Event::Input(input) = events.next().expect("Failed to read user input") {
+                match input {
                     Key::Backspace => {
                         ui.input.pop();
                     }
@@ -331,8 +331,7 @@ fn main() -> Result<(), failure::Error> {
                         }
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
     })
