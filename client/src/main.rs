@@ -295,7 +295,7 @@ fn main() -> Result<(), failure::Error> {
                                 } else if cmd == "/beep" && input.len() == 2 {
                                     let recipient = input[1];
 
-                                    let msg = Command::Beep(recipient.to_string().clone());
+                                    let msg = Command::Beep(recipient.to_string());
                                     client.cmd_s.send(msg).unwrap();
 
                                     ui.user_history.push(format!("{} {}", cmd, recipient));
@@ -308,7 +308,7 @@ fn main() -> Result<(), failure::Error> {
                                 } else if (cmd == "/name" || cmd == "/nick") && input.len() == 2 {
                                     let newname = input[1];
 
-                                    let msg = Command::Name(newname.to_string().clone());
+                                    let msg = Command::Name(newname.to_string());
                                     client.cmd_s.send(msg).unwrap();
                                     ui.user_history.push(format!("{} {}", cmd, newname));
                                     client.nickname = newname.to_string();
