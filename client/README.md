@@ -29,7 +29,6 @@ icbc --hostname server.example.net --group hackers -n ferris
 There are a lot of things to implement and/or fix before others might consider this usable, such as:
 - scrolling through history (page up/down)
 - tab completion on usernames
-- support for changing groups, changing nick, listing users, etc
+- support for changing groups, listing users, etc
 - highlight on mentions
-- better readline-like support for input
 - and the list goes on..
