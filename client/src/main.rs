@@ -206,6 +206,8 @@ fn main() -> Result<(), failure::Error> {
                         // Replace the current line with the entry in the user_history vector at
                         // the offset hist_offset, counted from the end.
                         hist_offset += 1;
+                        cursor_offset = 0;
+
                         let hist_len = ui.user_history.len();
 
                         if (hist_offset > hist_len) || (hist_len == 0) {
@@ -218,6 +220,7 @@ fn main() -> Result<(), failure::Error> {
                         // Do the same as for the Up key, but in reverse. Take care not to
                         // make the offset negative. If the offset would become zero, just
                         // clear the input field.
+                        cursor_offset = 0;
                         let hist_len = ui.user_history.len();
                         if hist_offset == 0 || hist_len == 0 {
                             continue;
