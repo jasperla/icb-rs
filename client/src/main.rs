@@ -63,7 +63,7 @@ fn main() -> Result<(), failure::Error> {
         group: group.clone(),
     };
 
-    let (client, mut server) = icb::init(config).unwrap();
+    let (mut client, mut server) = icb::init(config).unwrap();
 
     // Configure the terminal...
     let stdout = io::stdout().into_raw_mode()?;
@@ -304,6 +304,14 @@ fn main() -> Result<(), failure::Error> {
                                         timestamp(),
                                         recipient
                                     ));
+                                    ui.input.drain(..);
+                                } else if (cmd == "/name" || cmd == "/nick") && input.len() == 2 {
+                                    let newname = input[1];
+
+                                    let msg = Command::Name(newname.to_string().clone());
+                                    client.cmd_s.send(msg).unwrap();
+                                    ui.user_history.push(format!("{} {}", cmd, newname));
+                                    client.nickname = newname.to_string();
                                     ui.input.drain(..);
                                 }
                             }

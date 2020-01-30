@@ -38,8 +38,10 @@ pub enum Command {
     /// Send a personal message to a user.
     /// First parameter is the username, second is the message text.
     Personal(String, String),
-    /// Beep another user
+    /// Beep another user.
     Beep(String),
+    /// Change nickname.
+    Name(String),
 }
 
 /// Representation of the client/user state.
@@ -231,6 +233,18 @@ impl Server {
                                 .unwrap()
                                 .write_all(packet.as_bytes())
                                 .unwrap();
+                        }
+                        Command::Name(newname) => {
+                            let packet = (packets::COMMAND.create)(vec![
+                                packets::CMD_NAME,
+                                newname.as_str(),
+                            ]);
+                            self.sock
+                                .as_ref()
+                                .unwrap()
+                                .write_all(packet.as_bytes())
+                                .unwrap();
+                            self.nickname = newname;
                         }
                     }
                 }

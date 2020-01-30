@@ -229,7 +229,7 @@ pub const CMD_TOPIC: &str = "topic";
 pub const CMD_W: &str = "w";
 
 fn command_packet_create(fields: Vec<&str>) -> String {
-    let all_cmds = vec![CMD_BEEP, CMD_M, CMD_MSG];
+    let all_cmds = vec![CMD_BEEP, CMD_M, CMD_MSG, CMD_NAME];
     let cmd = fields[0];
 
     if all_cmds.contains(&cmd) {
