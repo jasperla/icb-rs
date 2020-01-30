@@ -80,7 +80,8 @@ fn main() -> Result<(), failure::Error> {
 
     println!("{}", clear::All);
 
-    let mut hist_offset = 0;
+    let mut hist_offset = 0; // offset in the user_history vector (counted from the end)
+    let mut cursor_offset = 0; // offset of the cursor from the end of the string
 
     thread::scope(|s| {
         s.spawn(|_| {
@@ -170,7 +171,10 @@ fn main() -> Result<(), failure::Error> {
             write!(
                 terminal.backend_mut(),
                 "{}",
-                Goto(2 + ui.input.width() as u16, termsize.height - 1)
+                Goto(
+                    2 + (ui.input.width() - cursor_offset) as u16,
+                    termsize.height - 1
+                )
             )
             .expect("Failed to position cursor");
             io::stdout().flush().ok();
@@ -183,9 +187,15 @@ fn main() -> Result<(), failure::Error> {
                         ui.input.pop();
                     }
                     Key::Ctrl(c) => match c {
-                        'w' => ui.input.clear(), // XXX: should only remove the last word
-                        'a' => {}                // XXX move cursor to beginning
-                        'e' => {}                // XXX move cursor to end.
+                        'w' => {
+                            // XXX: should only remove the last word instead of the whole line
+                            ui.input.clear();
+                            cursor_offset = 0;
+                        }
+                        // Move the cursor to the beginning of the line
+                        'a' => cursor_offset = ui.input.width(),
+                        // Move the cursor to the end of the line
+                        'e' => cursor_offset = 0,
                         _ => {}
                     },
                     Key::Up => {
@@ -216,9 +226,25 @@ fn main() -> Result<(), failure::Error> {
 
                         ui.input = ui.user_history[hist_len - hist_offset].to_string();
                     }
+                    Key::Left => {
+                        if cursor_offset == ui.input.width() {
+                            continue;
+                        }
+
+                        cursor_offset += 1;
+                    }
+                    Key::Right => {
+                        if cursor_offset == 0 {
+                            continue;
+                        }
+
+                        cursor_offset -= 1;
+                    }
                     Key::Char('\n') => {
-                        // Reset the position in the user_history buffer.
+                        // Reset the position in the user_history buffer as well as the offset into
+                        // the input field for the cursor.
                         hist_offset = 0;
+                        cursor_offset = 0;
 
                         match ui.input.chars().next() {
                             Some(v) if v == '/' => {
@@ -279,7 +305,16 @@ fn main() -> Result<(), failure::Error> {
                         }
                     }
                     Key::Char(c) => {
-                        ui.input.push(c);
+                        // Determine where new characters should end up; simple case is just
+                        // at the end.
+                        if cursor_offset == 0 {
+                            ui.input.push(c);
+                        } else {
+                            // Otherwise have to insert the new character into ui.input at the provided
+                            // (negative) offset.
+                            let input_len = ui.input.len();
+                            ui.input.insert(input_len - cursor_offset, c);
+                        }
                     }
                     _ => {}
                 },
