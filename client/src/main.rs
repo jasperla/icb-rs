@@ -96,10 +96,7 @@ fn main() -> Result<(), failure::Error> {
             if let Ok(m) = client.msg_r.try_recv() {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
-                    packets::T_OPEN => {
-                        ui.view
-                            .add(format!("{} <{}> {}", timestamp(), m[1], m[2]))
-                    }
+                    packets::T_OPEN => ui.view.add(format!("{} <{}> {}", timestamp(), m[1], m[2])),
                     packets::T_PERSONAL => {
                         ui.view
                             .add(format!("{} **{}** {}", timestamp(), m[1], m[2]))
@@ -117,10 +114,7 @@ fn main() -> Result<(), failure::Error> {
                             m[2], m[1]
                         )),
                     },
-                    packets::T_BEEP => {
-                        ui.view
-                            .add(format!("{} *{} beeps you*", timestamp(), m[1]))
-                    }
+                    packets::T_BEEP => ui.view.add(format!("{} *{} beeps you*", timestamp(), m[1])),
                     // XXX: should handle "\x18eNick is already in use\x00" too
                     _ => ui.view.add(format!("msg_r: {} read: {:?}", timestamp(), m)),
                 }

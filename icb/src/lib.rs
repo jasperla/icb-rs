@@ -313,7 +313,10 @@ impl Server {
         // from a Result<> to an Option<>.
         match TcpStream::connect(format!("{}:{}", &self.hostname, &self.port)) {
             Ok(t) => self.sock = Some(t),
-            Err(_) => panic!("Could not connect to {}:{}", &self.hostname, &self.port),
+            Err(e) => panic!(
+                "Could not connect to {}:{} - {}",
+                &self.hostname, &self.port, e
+            ),
         }
 
         // At this point we expect a protocol packet.
