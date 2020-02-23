@@ -209,7 +209,7 @@ impl Server {
                             self.sock
                                 .as_ref()
                                 .unwrap()
-                                .write_all(packet.as_bytes())
+                                .write_all(&packet)
                                 .unwrap();
                         }
                         Command::Personal(recipient, msg) => {
@@ -220,7 +220,7 @@ impl Server {
                             self.sock
                                 .as_ref()
                                 .unwrap()
-                                .write_all(packet.as_bytes())
+                                .write_all(&packet)
                                 .unwrap();
                         }
                         Command::Beep(recipient) => {
@@ -231,7 +231,7 @@ impl Server {
                             self.sock
                                 .as_ref()
                                 .unwrap()
-                                .write_all(packet.as_bytes())
+                                .write_all(&packet)
                                 .unwrap();
                         }
                         Command::Name(newname) => {
@@ -242,7 +242,7 @@ impl Server {
                             self.sock
                                 .as_ref()
                                 .unwrap()
-                                .write_all(packet.as_bytes())
+                                .write_all(&packet)
                                 .unwrap();
                             self.nickname = newname;
                         }
@@ -297,7 +297,7 @@ impl Server {
         self.sock
             .as_ref()
             .unwrap()
-            .write_all(login_packet.as_bytes())?;
+            .write_all(&login_packet)?;
 
         if self.read(Some(packets::T_LOGIN)).is_err() {
             panic!("Login failed.");
