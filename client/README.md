@@ -27,7 +27,6 @@ icbc --hostname server.example.net --group hackers -n ferris
 ## ToDo
 
 There are a lot of things to implement and/or fix before others might consider this usable, such as:
-- scrolling through history (page up/down)
 - tab completion on usernames
 - support for changing groups, listing users, etc
 - highlight on mentions
