@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::str;
+use std::convert::TryFrom;
 
 use crate::util::q;
 
@@ -19,7 +20,7 @@ pub const T_BEEP: char = 'k';
 // like:
 // trait IcbPacket {
 //   fn parse();
-//   fn create(packet_type: char, fields: Vec<&str>) -> String { etc };
+//   fn create(packet_type: char, fields: Vec<&str>) -> Vec<u8> { etc };
 // }
 // impl IcbPacket for LoginPacket {
 //   pub fn new()
@@ -31,25 +32,32 @@ pub const T_BEEP: char = 'k';
 // What needs to be considered is whether it's a good idea to allocate
 // all the different packet types upfront?
 
-fn packet_create(packet_type: char, fields: Vec<&str>) -> String {
-    let data = fields.join("\x01");
+fn packet_create(packet_type: char, fields: Vec<&str>) -> Vec<u8> {
+    let mut data = fields.join("\x01");
     let dlen = data.len() + 2; // account for the packet type and NUL byte
 
-    assert!(dlen < 255);
+    // FIXME: Return a Result indicating success? Or an array of packets?
+    let plen = match u8::try_from(dlen) {
+        Ok(res) => res,
+        Err(_) => {
+            data.truncate(253); // Leave room for packet type and NUL byte
+            255
+        }
+    };
 
-    // Rather ugly way to use a variable (dlen) as a raw byte (\x16 or \u{16})
-    let payload = format!(
-        "{}{}{}\x00",
-        str::from_utf8(&[dlen as u8]).unwrap(),
-        packet_type,
-        data
-    );
-    q("Created payload", &payload).unwrap();
-    payload
+    let mut v = Vec::<u8>::with_capacity(dlen + 2);
+    v.push(plen);
+    v.push(packet_type as u8);
+    v.extend_from_slice(data.as_bytes());
+    v.push(0x00);
+
+    q("Created payload", &v).unwrap();
+
+    v
 }
 
 #[allow(unused_variables)]
-fn invalid_packet_create(_fields: Vec<&str>) -> String {
+fn invalid_packet_create(_fields: Vec<&str>) -> Vec<u8> {
     panic!("You're attempting to create a packet you're not allowed to send to a server");
 }
 
@@ -69,7 +77,7 @@ pub struct Packet {
     /// which is set to the `packet_type`.
     pub parse: fn(Vec<u8>, usize) -> HashMap<&'static str, String>,
     /// Used to create a valid packet with all the provided fields.
-    pub create: fn(Vec<&str>) -> String,
+    pub create: fn(Vec<&str>) -> Vec<u8>,
 }
 
 /// These are all the valid packet types we know of.
@@ -91,7 +99,7 @@ fn login_packet_parse(buffer: Vec<u8>, _len: usize) -> HashMap<&'static str, Str
     hashmap! { "type" => T_LOGIN.to_string() }
 }
 
-fn login_packet_create(fields: Vec<&str>) -> String {
+fn login_packet_create(fields: Vec<&str>) -> Vec<u8> {
     packet_create(T_LOGIN, fields)
 }
 
@@ -127,7 +135,7 @@ fn protocol_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, S
     }
 }
 
-fn protocol_packet_create(fields: Vec<&str>) -> String {
+fn protocol_packet_create(fields: Vec<&str>) -> Vec<u8> {
     packet_create(T_PROTOCOL, fields)
 }
 
@@ -171,7 +179,7 @@ fn open_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, Strin
     }
 }
 
-fn open_packet_create(fields: Vec<&str>) -> String {
+fn open_packet_create(fields: Vec<&str>) -> Vec<u8> {
     packet_create(T_OPEN, fields)
 }
 
@@ -228,7 +236,7 @@ pub const CMD_PASS: &str = "pass";
 pub const CMD_TOPIC: &str = "topic";
 pub const CMD_W: &str = "w";
 
-fn command_packet_create(fields: Vec<&str>) -> String {
+fn command_packet_create(fields: Vec<&str>) -> Vec<u8> {
     let all_cmds = vec![CMD_BEEP, CMD_M, CMD_MSG, CMD_NAME];
     let cmd = fields[0];
 
