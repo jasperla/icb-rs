@@ -1,3 +1,4 @@
+mod tailview;
 #[allow(dead_code)]
 mod util;
 use util::{Event, Events};
@@ -19,13 +20,15 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders, List, Paragraph, Text, Widget};
+use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
 
+use tailview::TailView;
+
 struct Ui {
     input: String,
-    history: Vec<String>,
+    view: TailView,
     user_history: Vec<String>,
 }
 
@@ -34,7 +37,7 @@ impl Default for Ui {
         Ui {
             input: String::new(),
             // History as shown (includes everything that happened in the group)
-            history: Vec::new(),
+            view: TailView::new(),
             // What the user has sent so far
             user_history: Vec::with_capacity(100),
         }
@@ -94,34 +97,32 @@ fn main() -> Result<(), failure::Error> {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
                     packets::T_OPEN => {
-                        ui.history
-                            .push(format!("{} <{}> {}", timestamp(), m[1], m[2]))
+                        ui.view
+                            .add(format!("{} <{}> {}", timestamp(), m[1], m[2]))
                     }
                     packets::T_PERSONAL => {
-                        ui.history
-                            .push(format!("{} **{}** {}", timestamp(), m[1], m[2]))
+                        ui.view
+                            .add(format!("{} **{}** {}", timestamp(), m[1], m[2]))
                     }
                     packets::T_PROTOCOL => ui
-                        .history
-                        .push(format!("==> Connected to {} on {}", m[2], m[1])),
+                        .view
+                        .add(format!("==> Connected to {} on {}", m[2], m[1])),
                     packets::T_STATUS => match m[1].as_str() {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
                         | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
-                            ui.history.push(format!("{}: {} ", timestamp(), m[2]))
+                            ui.view.add(format!("{}: {} ", timestamp(), m[2]))
                         }
-                        _ => ui.history.push(format!(
+                        _ => ui.view.add(format!(
                             "=> Message '{}' received in unknown category '{}'",
                             m[2], m[1]
                         )),
                     },
                     packets::T_BEEP => {
-                        ui.history
-                            .push(format!("{} *{} beeps you*", timestamp(), m[1]))
+                        ui.view
+                            .add(format!("{} *{} beeps you*", timestamp(), m[1]))
                     }
                     // XXX: should handle "\x18eNick is already in use\x00" too
-                    _ => ui
-                        .history
-                        .push(format!("msg_r: {} read: {:?}", timestamp(), m)),
+                    _ => ui.view.add(format!("msg_r: {} read: {:?}", timestamp(), m)),
                 }
             }
             std::thread::sleep(Duration::from_millis(1));
@@ -149,25 +150,8 @@ fn main() -> Result<(), failure::Error> {
                     Paragraph::new([Text::raw(&ui.input)].iter())
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
-                    // XXX: using pageup/pagedown should allow for scrolling through
-                    //      the history too.
-                    let max_history_len = termsize.height
-                        - 1  // chunks[0],
-                        - 2  // chunk[1] + border
-                        - 2; // chunks[2] + border
 
-                    // Get the full history and take as many entries from the end as we can fit
-                    // in the history pane of the window.
-                    let history = ui
-                        .history
-                        .iter()
-                        .rev()
-                        .take(max_history_len as usize)
-                        .rev()
-                        .map(|i| Text::raw(i.to_string()));
-                    List::new(history)
-                        .block(Block::default().borders(Borders::TOP))
-                        .render(&mut f, chunks[1]);
+                    ui.view.draw(&mut f, chunks[1]);
                 })
                 .expect("Failed to draw UI to terminal");
 
@@ -284,7 +268,7 @@ fn main() -> Result<(), failure::Error> {
                                     // Record the normalized command
                                     ui.user_history
                                         .push(format!("{} {} {}", cmd, recipient, msg_text));
-                                    ui.history.push(format!(
+                                    ui.view.add(format!(
                                         "{}: -> {}: {}",
                                         timestamp(),
                                         recipient,
@@ -299,7 +283,7 @@ fn main() -> Result<(), failure::Error> {
                                     client.cmd_s.send(msg).unwrap();
 
                                     ui.user_history.push(format!("{} {}", cmd, recipient));
-                                    ui.history.push(format!(
+                                    ui.view.add(format!(
                                         "{}: *beep beep, {}*",
                                         timestamp(),
                                         recipient
@@ -323,7 +307,7 @@ fn main() -> Result<(), failure::Error> {
 
                                 // Send our own messages into the history as well as the server
                                 // won't echo them back to us.
-                                ui.history.push(format!("{}: {}", timestamp(), msg_text));
+                                ui.view.add(format!("{}: {}", timestamp(), msg_text));
                                 ui.user_history.push(msg_text);
                                 ui.input.clear();
                             }
@@ -340,6 +324,12 @@ fn main() -> Result<(), failure::Error> {
                             let input_len = ui.input.len();
                             ui.input.insert(input_len - cursor_offset, c);
                         }
+                    }
+                    Key::PageUp => {
+                        ui.view.scroll_up(termsize);
+                    }
+                    Key::PageDown => {
+                        ui.view.scroll_down(termsize);
                     }
                     _ => {}
                 }
