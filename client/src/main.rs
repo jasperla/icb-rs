@@ -10,7 +10,6 @@ use clap::App;
 use crossbeam_utils::thread;
 use icb::{packets, Command, Config};
 use std::io::{self, Write};
-use std::process::exit;
 use std::time::Duration;
 use termion::clear;
 use termion::cursor::Goto;
@@ -87,11 +86,12 @@ fn main() -> Result<(), failure::Error> {
     let mut cursor_offset = 0; // offset of the cursor from the end of the string
 
     thread::scope(|s| {
-        s.spawn(|_| {
+        let server_handle = s.spawn(|_| {
             server.run();
         });
 
-        loop {
+        let mut done = false;
+        while !done {
             // Handle any communication with the backend before drawing the next screen.
             if let Ok(m) = client.msg_r.try_recv() {
                 let packet_type = m[0].chars().next().unwrap();
@@ -237,10 +237,9 @@ fn main() -> Result<(), failure::Error> {
                                 let cmd = input[0];
 
                                 if cmd == "/quit" {
-                                    // Use a hammer to quit, ICB doesn't provide a clean way to
-                                    // disconnect anyway other than terminating the conneciton.
                                     io::stdout().flush().ok();
-                                    exit(0);
+                                    client.cmd_s.send(Command::Bye).unwrap();
+                                    done = true;
                                 } else if (cmd == "/msg" || cmd == "/m") && input.len() > 2 {
                                     let recipient = input[1];
 
@@ -329,6 +328,7 @@ fn main() -> Result<(), failure::Error> {
                 }
             }
         }
+        server_handle.join().unwrap();
     })
     .unwrap();
 
