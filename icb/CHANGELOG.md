@@ -1,4 +1,4 @@
-# 0.x.y (not yet released)
+# 0.2.2
 
 - implement sending `beep` commands and receiving `beep` messages
 - handle nickname changes through the `name` command
