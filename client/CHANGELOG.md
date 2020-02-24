@@ -1,3 +1,7 @@
+# 0.x.y (NOT YET RELEASED)
+
+- gracefully exit to prevent leaving the terminal in a garbled state
+
 # 0.2.2
 
 - navigate the current input with left/right arrow keys as well as CTRL+a/e
