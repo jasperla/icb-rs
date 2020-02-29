@@ -1,4 +1,5 @@
 mod tailview;
+mod tab;
 #[allow(dead_code)]
 mod util;
 use util::{Event, Events};
@@ -23,11 +24,11 @@ use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
 
-use tailview::TailView;
+use tab::{MsgType, Tabs};
 
 struct Ui {
     input: String,
-    view: TailView,
+    views: Tabs,
     user_history: Vec<String>,
 }
 
@@ -35,8 +36,8 @@ impl Default for Ui {
     fn default() -> Ui {
         Ui {
             input: String::new(),
-            // History as shown (includes everything that happened in the group)
-            view: TailView::new(),
+            // Tabs for channels and personal chats
+            views: Tabs::new(),
             // What the user has sent so far
             user_history: Vec::with_capacity(100),
         }
@@ -96,28 +97,27 @@ fn main() -> Result<(), failure::Error> {
             if let Ok(m) = client.msg_r.try_recv() {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
-                    packets::T_OPEN => ui.view.add(format!("{} <{}> {}", timestamp(), m[1], m[2])),
-                    packets::T_PERSONAL => {
-                        ui.view
-                            .add(format!("{} **{}** {}", timestamp(), m[1], m[2]))
-                    }
+                    packets::T_OPEN => ui.views.add_message(MsgType::Open(group.clone()), format!("{} <{}> {}", timestamp(), m[1], m[2])),
+                    packets::T_PERSONAL =>
+                        ui.views
+                            .add_message(MsgType::Personal(m[1].clone()), format!("{} <{}> {}", timestamp(), m[1], m[2])),
                     packets::T_PROTOCOL => ui
-                        .view
-                        .add(format!("==> Connected to {} on {}", m[2], m[1])),
+                        .views
+                        .add_status(format!("==> Connected to {} on {}", m[2], m[1])),
                     packets::T_STATUS => match m[1].as_str() {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
-                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
-                            ui.view.add(format!("{}: {} ", timestamp(), m[2]))
-                        }
-                        _ => ui.view.add(format!(
+                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" =>
+                            ui.views.add_message(MsgType::Open(group.clone()), format!("{}: {} ", timestamp(), m[2])),
+
+                        _ => ui.views.add_status(format!(
                             "=> Message '{}' received in unknown category '{}'",
                             m[2], m[1]
                         )),
                     },
-                    packets::T_BEEP => ui.view.add(format!("{} *{} beeps you*", timestamp(), m[1])),
+                    packets::T_BEEP => ui.views.add_message(MsgType::Personal(m[1].clone()), format!("{} <{}> *beeps you*", timestamp(), m[1])),
                     // XXX: should handle "\x18eNick is already in use\x00" too
-                    _ => ui.view.add(format!("msg_r: {} read: {:?}", timestamp(), m)),
-                }
+                    _ => ui.views.add_status(format!("msg_r: {} read: {:?}", timestamp(), m)),
+                }.ok();
             }
             std::thread::sleep(Duration::from_millis(1));
 
@@ -130,7 +130,7 @@ fn main() -> Result<(), failure::Error> {
                         .horizontal_margin(1)
                         .constraints(
                             [
-                                Constraint::Length(1),
+                                Constraint::Length(2),
                                 Constraint::Min(1),
                                 Constraint::Length(3),
                             ]
@@ -139,13 +139,13 @@ fn main() -> Result<(), failure::Error> {
                         .split(f.size());
 
                     // XXX: Keep track of the current group and topic
-                    let help_message = format!("Group: {}", group);
-                    Paragraph::new([Text::raw(help_message)].iter()).render(&mut f, chunks[0]);
+                    ui.views.draw_titles(&mut f, chunks[0]);
+                    ui.views.draw_current(&mut f, chunks[1]);
+
                     Paragraph::new([Text::raw(&ui.input)].iter())
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
 
-                    ui.view.draw(&mut f, chunks[1]);
                 })
                 .expect("Failed to draw UI to terminal");
 
@@ -178,6 +178,9 @@ fn main() -> Result<(), failure::Error> {
                         'a' => cursor_offset = ui.input.width(),
                         // Move the cursor to the end of the line
                         'e' => cursor_offset = 0,
+                        // Cycle through tabs
+                        'n' => ui.views.next(),
+                        'p' => ui.views.previous(),
                         _ => {}
                     },
                     Key::Up => {
@@ -261,12 +264,13 @@ fn main() -> Result<(), failure::Error> {
                                     // Record the normalized command
                                     ui.user_history
                                         .push(format!("{} {} {}", cmd, recipient, msg_text));
-                                    ui.view.add(format!(
-                                        "{}: -> {}: {}",
+                                    ui.views.add_message(MsgType::Personal(recipient.to_string()), format!(
+                                        "{}: {}",
                                         timestamp(),
-                                        recipient,
                                         msg_text
-                                    ));
+                                    )).ok();
+
+                                    ui.views.switch_to(MsgType::Personal(recipient.to_string()));
 
                                     ui.input.drain(..);
                                 } else if cmd == "/beep" && input.len() == 2 {
@@ -276,11 +280,11 @@ fn main() -> Result<(), failure::Error> {
                                     client.cmd_s.send(msg).unwrap();
 
                                     ui.user_history.push(format!("{} {}", cmd, recipient));
-                                    ui.view.add(format!(
+                                    ui.views.add_message(MsgType::Personal(recipient.to_string()), format!(
                                         "{}: *beep beep, {}*",
                                         timestamp(),
                                         recipient
-                                    ));
+                                    )).ok();
                                     ui.input.drain(..);
                                 } else if (cmd == "/name" || cmd == "/nick") && input.len() == 2 {
                                     let newname = input[1];
@@ -295,12 +299,11 @@ fn main() -> Result<(), failure::Error> {
                             _ => {
                                 let msg_text: String = ui.input.drain(..).collect();
 
-                                let msg = Command::Open(msg_text.clone());
-                                client.cmd_s.send(msg).unwrap();
+                                client.cmd_s.send(ui.views.command_for_current(&msg_text)).unwrap();
 
                                 // Send our own messages into the history as well as the server
                                 // won't echo them back to us.
-                                ui.view.add(format!("{}: {}", timestamp(), msg_text));
+                                ui.views.add_current(format!("{}: {}", timestamp(), msg_text)).ok();
                                 ui.user_history.push(msg_text);
                                 ui.input.clear();
                             }
@@ -319,10 +322,10 @@ fn main() -> Result<(), failure::Error> {
                         }
                     }
                     Key::PageUp => {
-                        ui.view.scroll_up(termsize);
+                        ui.views.scroll_up(termsize);
                     }
                     Key::PageDown => {
-                        ui.view.scroll_down(termsize);
+                        ui.views.scroll_down(termsize);
                     }
                     _ => {}
                 }
