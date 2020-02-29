@@ -1,5 +1,5 @@
-mod tailview;
 mod tab;
+mod tailview;
 #[allow(dead_code)]
 mod util;
 use util::{Event, Events};
@@ -97,27 +97,41 @@ fn main() -> Result<(), failure::Error> {
             if let Ok(m) = client.msg_r.try_recv() {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
-                    packets::T_OPEN => ui.views.add_message(MsgType::Open(group.clone()), format!("{} <{}> {}", timestamp(), m[1], m[2])),
-                    packets::T_PERSONAL =>
-                        ui.views
-                            .add_message(MsgType::Personal(m[1].clone()), format!("{} <{}> {}", timestamp(), m[1], m[2])),
+                    packets::T_OPEN => ui.views.add_message(
+                        MsgType::Open(group.clone()),
+                        format!("{} <{}> {}", timestamp(), m[1], m[2]),
+                    ),
+                    packets::T_PERSONAL => ui.views.add_message(
+                        MsgType::Personal(m[1].clone()),
+                        format!("{} <{}> {}", timestamp(), m[1], m[2]),
+                    ),
                     packets::T_PROTOCOL => ui
                         .views
                         .add_status(format!("==> Connected to {} on {}", m[2], m[1])),
                     packets::T_STATUS => match m[1].as_str() {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
-                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" =>
-                            ui.views.add_message(MsgType::Open(group.clone()), format!("{}: {} ", timestamp(), m[2])),
+                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
+                            ui.views.add_message(
+                                MsgType::Open(group.clone()),
+                                format!("{}: {} ", timestamp(), m[2]),
+                            )
+                        }
 
                         _ => ui.views.add_status(format!(
                             "=> Message '{}' received in unknown category '{}'",
                             m[2], m[1]
                         )),
                     },
-                    packets::T_BEEP => ui.views.add_message(MsgType::Personal(m[1].clone()), format!("{} <{}> *beeps you*", timestamp(), m[1])),
+                    packets::T_BEEP => ui.views.add_message(
+                        MsgType::Personal(m[1].clone()),
+                        format!("{} <{}> *beeps you*", timestamp(), m[1]),
+                    ),
                     // XXX: should handle "\x18eNick is already in use\x00" too
-                    _ => ui.views.add_status(format!("msg_r: {} read: {:?}", timestamp(), m)),
-                }.ok();
+                    _ => ui
+                        .views
+                        .add_status(format!("msg_r: {} read: {:?}", timestamp(), m)),
+                }
+                .ok();
             }
             std::thread::sleep(Duration::from_millis(1));
 
@@ -145,7 +159,6 @@ fn main() -> Result<(), failure::Error> {
                     Paragraph::new([Text::raw(&ui.input)].iter())
                         .block(Block::default().borders(Borders::TOP))
                         .render(&mut f, chunks[2]);
-
                 })
                 .expect("Failed to draw UI to terminal");
 
@@ -264,11 +277,12 @@ fn main() -> Result<(), failure::Error> {
                                     // Record the normalized command
                                     ui.user_history
                                         .push(format!("{} {} {}", cmd, recipient, msg_text));
-                                    ui.views.add_message(MsgType::Personal(recipient.to_string()), format!(
-                                        "{}: {}",
-                                        timestamp(),
-                                        msg_text
-                                    )).ok();
+                                    ui.views
+                                        .add_message(
+                                            MsgType::Personal(recipient.to_string()),
+                                            format!("{}: {}", timestamp(), msg_text),
+                                        )
+                                        .ok();
 
                                     ui.views.switch_to(MsgType::Personal(recipient.to_string()));
 
@@ -280,11 +294,12 @@ fn main() -> Result<(), failure::Error> {
                                     client.cmd_s.send(msg).unwrap();
 
                                     ui.user_history.push(format!("{} {}", cmd, recipient));
-                                    ui.views.add_message(MsgType::Personal(recipient.to_string()), format!(
-                                        "{}: *beep beep, {}*",
-                                        timestamp(),
-                                        recipient
-                                    )).ok();
+                                    ui.views
+                                        .add_message(
+                                            MsgType::Personal(recipient.to_string()),
+                                            format!("{}: *beep beep, {}*", timestamp(), recipient),
+                                        )
+                                        .ok();
                                     ui.input.drain(..);
                                 } else if (cmd == "/name" || cmd == "/nick") && input.len() == 2 {
                                     let newname = input[1];
@@ -299,11 +314,16 @@ fn main() -> Result<(), failure::Error> {
                             _ => {
                                 let msg_text: String = ui.input.drain(..).collect();
 
-                                client.cmd_s.send(ui.views.command_for_current(&msg_text)).unwrap();
+                                client
+                                    .cmd_s
+                                    .send(ui.views.command_for_current(&msg_text))
+                                    .unwrap();
 
                                 // Send our own messages into the history as well as the server
                                 // won't echo them back to us.
-                                ui.views.add_current(format!("{}: {}", timestamp(), msg_text)).ok();
+                                ui.views
+                                    .add_current(format!("{}: {}", timestamp(), msg_text))
+                                    .ok();
                                 ui.user_history.push(msg_text);
                                 ui.input.clear();
                             }
