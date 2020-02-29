@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::terminal::Frame;
-use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
+use tui::widgets::{Block, Paragraph, Text, Widget};
 use unicode_width::UnicodeWidthStr;
 
 struct Line {
@@ -97,6 +97,7 @@ impl TailView {
             .iter()
             .skip(self.max_start)
             .map(|l| l.height(area.width))
+            .rev()
             .collect();
 
         let mut height = heights.iter().sum();
@@ -131,7 +132,7 @@ impl TailView {
     where
         B: Backend,
     {
-        let b = Block::default().borders(Borders::TOP);
+        let b = Block::default();
 
         self.update_max_start(b.inner(area));
 
