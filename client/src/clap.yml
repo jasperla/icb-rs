@@ -1,5 +1,5 @@
 name: icbc
-version: "0.2.1"
+version: "0.2.3"
 author: Jasper Lievisse Adriaanse <j+rust@jasper.la>
 about: ICB client
 args:
@@ -26,6 +26,7 @@ args:
       default_value: "7326"
   - group:
       short: g
+      long: group
       value_name: GROUP
       help: Group to join
       takes_value: true
