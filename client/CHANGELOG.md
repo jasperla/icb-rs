@@ -1,4 +1,4 @@
-# 0.x.y (NOT YET RELEASED)
+# 0.2.3
 
 - gracefully exit to prevent leaving the terminal in a garbled state
 - add tabbed views for personal chats
