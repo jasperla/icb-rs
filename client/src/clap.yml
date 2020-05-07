@@ -1,5 +1,5 @@
 name: icbc
-version: "0.2.3"
+version: "0.2.4"
 author: Jasper Lievisse Adriaanse <j+rust@jasper.la>
 about: ICB client
 args:
