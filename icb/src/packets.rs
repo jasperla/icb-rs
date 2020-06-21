@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::str;
 use std::convert::TryFrom;
+use std::str;
 
 use crate::util::q;
 
