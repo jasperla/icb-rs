@@ -11,6 +11,7 @@ use clap::App;
 use crossbeam_utils::thread;
 use icb::{packets, Command, Config};
 use std::io::{self, Write};
+use std::sync::mpsc::TryRecvError;
 use std::time::Duration;
 use termion::clear;
 use termion::cursor::Goto;
@@ -90,9 +91,17 @@ fn main() -> Result<(), failure::Error> {
         });
 
         let mut done = false;
+        let mut termsize = terminal.size().unwrap();
         while !done {
+            // Check if the terminal has resized and redraw if needed
+            let newtermsize = terminal.size().unwrap();
+            let mut redraw = newtermsize != termsize;
+            // Capture new terminal size
+            termsize = newtermsize;
+
             // Handle any communication with the backend before drawing the next screen.
             if let Ok(m) = client.msg_r.try_recv() {
+                redraw = true;
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
                     packets::T_OPEN => ui.views.add_message(
@@ -131,222 +140,247 @@ fn main() -> Result<(), failure::Error> {
                 }
                 .ok();
             }
-            std::thread::sleep(Duration::from_millis(1));
-
-            let termsize = terminal.size().unwrap();
-
-            terminal
-                .draw(|mut f| {
-                    let chunks = Layout::default()
-                        .direction(Direction::Vertical)
-                        .horizontal_margin(1)
-                        .constraints(
-                            [
-                                Constraint::Length(2),
-                                Constraint::Min(1),
-                                Constraint::Length(3),
-                            ]
-                            .as_ref(),
-                        )
-                        .split(f.size());
-
-                    // XXX: Keep track of the current group and topic
-                    ui.views.draw_titles(&mut f, chunks[0]);
-                    ui.views.draw_current(&mut f, chunks[1]);
-
-                    Paragraph::new([Text::raw(&ui.input)].iter())
-                        .block(Block::default().borders(Borders::TOP))
-                        .render(&mut f, chunks[2]);
-                })
-                .expect("Failed to draw UI to terminal");
-
-            // Put the cursor back inside the input box
-            write!(
-                terminal.backend_mut(),
-                "{}",
-                Goto(
-                    2 + (ui.input.width() - cursor_offset) as u16,
-                    termsize.height - 1
-                )
-            )
-            .expect("Failed to position cursor");
-            io::stdout().flush().ok();
 
             // Now read the user input, these could be control actions such as backspace,
             // commands (starting with '/') or actual messages intended for other users.
-            if let Event::Input(input) = events.next().expect("Failed to read user input") {
-                match input {
-                    Key::Backspace => {
-                        ui.input.pop();
-                    }
-                    Key::Ctrl(c) => match c {
-                        'w' => {
-                            // XXX: should only remove the last word instead of the whole line
-                            ui.input.clear();
-                            cursor_offset = 0;
-                        }
-                        // Move the cursor to the beginning of the line
-                        'a' => cursor_offset = ui.input.width(),
-                        // Move the cursor to the end of the line
-                        'e' => cursor_offset = 0,
-                        // Cycle through tabs
-                        'n' => ui.views.next(),
-                        'p' => ui.views.previous(),
-                        _ => {}
-                    },
-                    Key::Up => {
-                        // Replace the current line with the entry in the user_history vector at
-                        // the offset hist_offset, counted from the end.
-                        hist_offset += 1;
-                        cursor_offset = 0;
+            loop {
+                match events.next() {
+                    Ok(Event::Input(input)) => {
+                        redraw = true;
+                        match input {
+                            Key::Backspace => {
+                                ui.input.pop();
+                            }
+                            Key::Ctrl(c) => match c {
+                                'w' => {
+                                    // XXX: should only remove the last word instead of the whole line
+                                    ui.input.clear();
+                                    cursor_offset = 0;
+                                }
+                                // Move the cursor to the beginning of the line
+                                'a' => cursor_offset = ui.input.width(),
+                                // Move the cursor to the end of the line
+                                'e' => cursor_offset = 0,
+                                // Cycle through tabs
+                                'n' => ui.views.next(),
+                                'p' => ui.views.previous(),
+                                _ => {}
+                            },
+                            Key::Up => {
+                                // Replace the current line with the entry in the user_history vector at
+                                // the offset hist_offset, counted from the end.
+                                hist_offset += 1;
+                                cursor_offset = 0;
 
-                        let hist_len = ui.user_history.len();
+                                let hist_len = ui.user_history.len();
 
-                        if (hist_offset > hist_len) || (hist_len == 0) {
-                            continue;
-                        }
+                                if (hist_offset > hist_len) || (hist_len == 0) {
+                                    continue;
+                                }
 
-                        ui.input = ui.user_history[hist_len - hist_offset].to_string();
-                    }
-                    Key::Down => {
-                        // Do the same as for the Up key, but in reverse. Take care not to
-                        // make the offset negative. If the offset would become zero, just
-                        // clear the input field.
-                        cursor_offset = 0;
-                        let hist_len = ui.user_history.len();
-                        if hist_offset == 0 || hist_len == 0 {
-                            continue;
-                        } else if hist_offset == 1 {
-                            ui.input.drain(..);
-                            continue;
-                        }
-
-                        hist_offset -= 1;
-
-                        ui.input = ui.user_history[hist_len - hist_offset].to_string();
-                    }
-                    Key::Left => {
-                        if cursor_offset == ui.input.width() {
-                            continue;
-                        }
-
-                        cursor_offset += 1;
-                    }
-                    Key::Right => {
-                        if cursor_offset == 0 {
-                            continue;
-                        }
-
-                        cursor_offset -= 1;
-                    }
-                    Key::Char('\n') => {
-                        // Reset the position in the user_history buffer as well as the offset into
-                        // the input field for the cursor.
-                        hist_offset = 0;
-                        cursor_offset = 0;
-
-                        match ui.input.chars().next() {
-                            Some(v) if v == '/' => {
-                                let input: Vec<_> = ui.input.split_whitespace().collect();
-                                let cmd = input[0];
-
-                                if cmd == "/quit" {
-                                    io::stdout().flush().ok();
-                                    client.cmd_s.send(Command::Bye).unwrap();
-                                    done = true;
-                                } else if (cmd == "/msg" || cmd == "/m") && input.len() > 2 {
-                                    let recipient = input[1];
-
-                                    // Now take the text the user has entered and remove the first
-                                    // occurences of the command and recipient. We explicitly don't
-                                    // use `input` as we may lose any duplicate whitespace the sender has
-                                    // inserted, but remove the space after the recipient name.
-                                    let msg_text: String = ui.input.replacen(cmd, "", 1).replacen(
-                                        format!(" {} ", recipient).as_str(),
-                                        "",
-                                        1,
-                                    );
-                                    let msg = Command::Personal(
-                                        recipient.to_string().clone(),
-                                        msg_text.clone(),
-                                    );
-                                    client.cmd_s.send(msg).unwrap();
-
-                                    // Record the normalized command
-                                    ui.user_history
-                                        .push(format!("{} {} {}", cmd, recipient, msg_text));
-                                    ui.views
-                                        .add_message(
-                                            MsgType::Personal(recipient.to_string()),
-                                            format!("{}: {}", timestamp(), msg_text),
-                                        )
-                                        .ok();
-
-                                    ui.views.switch_to(MsgType::Personal(recipient.to_string()));
-
+                                ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                            }
+                            Key::Down => {
+                                // Do the same as for the Up key, but in reverse. Take care not to
+                                // make the offset negative. If the offset would become zero, just
+                                // clear the input field.
+                                cursor_offset = 0;
+                                let hist_len = ui.user_history.len();
+                                if hist_offset == 0 || hist_len == 0 {
+                                    continue;
+                                } else if hist_offset == 1 {
                                     ui.input.drain(..);
-                                } else if cmd == "/beep" && input.len() == 2 {
-                                    let recipient = input[1];
+                                    continue;
+                                }
 
-                                    let msg = Command::Beep(recipient.to_string());
-                                    client.cmd_s.send(msg).unwrap();
+                                hist_offset -= 1;
 
-                                    ui.user_history.push(format!("{} {}", cmd, recipient));
-                                    ui.views
-                                        .add_message(
-                                            MsgType::Personal(recipient.to_string()),
-                                            format!("{}: *beep beep, {}*", timestamp(), recipient),
-                                        )
-                                        .ok();
-                                    ui.input.drain(..);
-                                } else if (cmd == "/name" || cmd == "/nick") && input.len() == 2 {
-                                    let newname = input[1];
+                                ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                            }
+                            Key::Left => {
+                                if cursor_offset == ui.input.width() {
+                                    continue;
+                                }
 
-                                    let msg = Command::Name(newname.to_string());
-                                    client.cmd_s.send(msg).unwrap();
-                                    ui.user_history.push(format!("{} {}", cmd, newname));
-                                    client.nickname = newname.to_string();
-                                    ui.input.drain(..);
+                                cursor_offset += 1;
+                            }
+                            Key::Right => {
+                                if cursor_offset == 0 {
+                                    continue;
+                                }
+
+                                cursor_offset -= 1;
+                            }
+                            Key::Char('\n') => {
+                                // Reset the position in the user_history buffer as well as the offset into
+                                // the input field for the cursor.
+                                hist_offset = 0;
+                                cursor_offset = 0;
+
+                                match ui.input.chars().next() {
+                                    Some(v) if v == '/' => {
+                                        let input: Vec<_> = ui.input.split_whitespace().collect();
+                                        let cmd = input[0];
+
+                                        if cmd == "/quit" {
+                                            io::stdout().flush().ok();
+                                            client.cmd_s.send(Command::Bye).unwrap();
+                                            done = true;
+                                        } else if (cmd == "/msg" || cmd == "/m") && input.len() > 2
+                                        {
+                                            let recipient = input[1];
+
+                                            // Now take the text the user has entered and remove the first
+                                            // occurences of the command and recipient. We explicitly don't
+                                            // use `input` as we may lose any duplicate whitespace the sender has
+                                            // inserted, but remove the space after the recipient name.
+                                            let msg_text: String =
+                                                ui.input.replacen(cmd, "", 1).replacen(
+                                                    format!(" {} ", recipient).as_str(),
+                                                    "",
+                                                    1,
+                                                );
+                                            let msg = Command::Personal(
+                                                recipient.to_string().clone(),
+                                                msg_text.clone(),
+                                            );
+                                            client.cmd_s.send(msg).unwrap();
+
+                                            // Record the normalized command
+                                            ui.user_history.push(format!(
+                                                "{} {} {}",
+                                                cmd, recipient, msg_text
+                                            ));
+                                            ui.views
+                                                .add_message(
+                                                    MsgType::Personal(recipient.to_string()),
+                                                    format!("{}: {}", timestamp(), msg_text),
+                                                )
+                                                .ok();
+
+                                            ui.views.switch_to(MsgType::Personal(
+                                                recipient.to_string(),
+                                            ));
+
+                                            ui.input.drain(..);
+                                        } else if cmd == "/beep" && input.len() == 2 {
+                                            let recipient = input[1];
+
+                                            let msg = Command::Beep(recipient.to_string());
+                                            client.cmd_s.send(msg).unwrap();
+
+                                            ui.user_history.push(format!("{} {}", cmd, recipient));
+                                            ui.views
+                                                .add_message(
+                                                    MsgType::Personal(recipient.to_string()),
+                                                    format!(
+                                                        "{}: *beep beep, {}*",
+                                                        timestamp(),
+                                                        recipient
+                                                    ),
+                                                )
+                                                .ok();
+                                            ui.input.drain(..);
+                                        } else if (cmd == "/name" || cmd == "/nick")
+                                            && input.len() == 2
+                                        {
+                                            let newname = input[1];
+
+                                            let msg = Command::Name(newname.to_string());
+                                            client.cmd_s.send(msg).unwrap();
+                                            ui.user_history.push(format!("{} {}", cmd, newname));
+                                            client.nickname = newname.to_string();
+                                            ui.input.drain(..);
+                                        }
+                                    }
+                                    _ => {
+                                        let msg_text: String = ui.input.drain(..).collect();
+
+                                        client
+                                            .cmd_s
+                                            .send(ui.views.command_for_current(&msg_text))
+                                            .unwrap();
+
+                                        // Send our own messages into the history as well as the server
+                                        // won't echo them back to us.
+                                        ui.views
+                                            .add_current(format!("{}: {}", timestamp(), msg_text))
+                                            .ok();
+                                        ui.user_history.push(msg_text);
+                                        ui.input.clear();
+                                    }
                                 }
                             }
-                            _ => {
-                                let msg_text: String = ui.input.drain(..).collect();
-
-                                client
-                                    .cmd_s
-                                    .send(ui.views.command_for_current(&msg_text))
-                                    .unwrap();
-
-                                // Send our own messages into the history as well as the server
-                                // won't echo them back to us.
-                                ui.views
-                                    .add_current(format!("{}: {}", timestamp(), msg_text))
-                                    .ok();
-                                ui.user_history.push(msg_text);
-                                ui.input.clear();
+                            Key::Char(c) => {
+                                // Determine where new characters should end up; simple case is just
+                                // at the end.
+                                if cursor_offset == 0 {
+                                    ui.input.push(c);
+                                } else {
+                                    // Otherwise have to insert the new character into ui.input at the provided
+                                    // (negative) offset.
+                                    let input_len = ui.input.len();
+                                    ui.input.insert(input_len - cursor_offset, c);
+                                }
                             }
+                            Key::PageUp => {
+                                ui.views.scroll_up(termsize);
+                            }
+                            Key::PageDown => {
+                                ui.views.scroll_down(termsize);
+                            }
+                            _ => {}
                         }
                     }
-                    Key::Char(c) => {
-                        // Determine where new characters should end up; simple case is just
-                        // at the end.
-                        if cursor_offset == 0 {
-                            ui.input.push(c);
-                        } else {
-                            // Otherwise have to insert the new character into ui.input at the provided
-                            // (negative) offset.
-                            let input_len = ui.input.len();
-                            ui.input.insert(input_len - cursor_offset, c);
-                        }
+                    Err(TryRecvError::Disconnected) => {
+                        panic!("Input Event channel closed");
                     }
-                    Key::PageUp => {
-                        ui.views.scroll_up(termsize);
+                    Err(TryRecvError::Empty) => {
+                        break;
                     }
-                    Key::PageDown => {
-                        ui.views.scroll_down(termsize);
-                    }
-                    _ => {}
                 }
+            }
+
+            // Redraw if we need to
+            if redraw {
+                terminal
+                    .draw(|mut f| {
+                        let chunks = Layout::default()
+                            .direction(Direction::Vertical)
+                            .horizontal_margin(1)
+                            .constraints(
+                                [
+                                    Constraint::Length(2),
+                                    Constraint::Min(1),
+                                    Constraint::Length(3),
+                                ]
+                                .as_ref(),
+                            )
+                            .split(f.size());
+
+                        // XXX: Keep track of the current group and topic
+                        ui.views.draw_titles(&mut f, chunks[0]);
+                        ui.views.draw_current(&mut f, chunks[1]);
+
+                        Paragraph::new([Text::raw(&ui.input)].iter())
+                            .block(Block::default().borders(Borders::TOP))
+                            .render(&mut f, chunks[2]);
+                    })
+                    .expect("Failed to draw UI to terminal");
+
+                // Put the cursor back inside the input box
+                write!(
+                    terminal.backend_mut(),
+                    "{}",
+                    Goto(
+                        2 + (ui.input.width() - cursor_offset) as u16,
+                        termsize.height - 1
+                    )
+                )
+                .expect("Failed to position cursor");
+                io::stdout().flush().ok();
+            } else {
+                std::thread::sleep(Duration::from_millis(1));
             }
         }
         server_handle.join().unwrap();
