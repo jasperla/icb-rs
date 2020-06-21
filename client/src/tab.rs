@@ -44,6 +44,11 @@ impl Tab {
         Ok(())
     }
 
+    fn add_read(&mut self, message: String) -> Result<(), String> {
+        self.view.add(message);
+        Ok(())
+    }
+
     fn title(&self) -> Text {
         let mut modifier = Modifier::empty();
         if self.has_unread {
@@ -112,7 +117,7 @@ impl Tabs {
 
     pub fn add_current(&mut self, msg: String) -> Result<(), String> {
         if let Some(tab) = self.tabs.get_mut(self.current_tab) {
-            tab.add(msg)
+            tab.add_read(msg)
         } else {
             Err("No current tab?".to_string())
         }
