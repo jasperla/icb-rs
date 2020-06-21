@@ -1,6 +1,7 @@
 # 0.x.y (NOT RELEASED YET)
 
-- ...
+- Do not capture mouse input in order to facilitate copying from terminal.
+- Improve UI responsiveness when pasting.
 
 # 0.2.3
 
