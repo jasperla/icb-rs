@@ -206,44 +206,28 @@ impl Server {
                         Command::Open(msg) => {
                             q("Sending message to channel", &msg).unwrap();
                             let packet = (packets::OPEN.create)(vec![msg.as_str()]);
-                            self.sock
-                                .as_ref()
-                                .unwrap()
-                                .write_all(&packet)
-                                .unwrap();
+                            self.sock.as_ref().unwrap().write_all(&packet).unwrap();
                         }
                         Command::Personal(recipient, msg) => {
                             let packet = (packets::COMMAND.create)(vec![
                                 packets::CMD_MSG,
                                 format!("{} {}", recipient, msg).as_str(),
                             ]);
-                            self.sock
-                                .as_ref()
-                                .unwrap()
-                                .write_all(&packet)
-                                .unwrap();
+                            self.sock.as_ref().unwrap().write_all(&packet).unwrap();
                         }
                         Command::Beep(recipient) => {
                             let packet = (packets::COMMAND.create)(vec![
                                 packets::CMD_BEEP,
                                 recipient.as_str(),
                             ]);
-                            self.sock
-                                .as_ref()
-                                .unwrap()
-                                .write_all(&packet)
-                                .unwrap();
+                            self.sock.as_ref().unwrap().write_all(&packet).unwrap();
                         }
                         Command::Name(newname) => {
                             let packet = (packets::COMMAND.create)(vec![
                                 packets::CMD_NAME,
                                 newname.as_str(),
                             ]);
-                            self.sock
-                                .as_ref()
-                                .unwrap()
-                                .write_all(&packet)
-                                .unwrap();
+                            self.sock.as_ref().unwrap().write_all(&packet).unwrap();
                             self.nickname = newname;
                         }
                     }
@@ -294,10 +278,7 @@ impl Server {
             "login",
         ]);
 
-        self.sock
-            .as_ref()
-            .unwrap()
-            .write_all(&login_packet)?;
+        self.sock.as_ref().unwrap().write_all(&login_packet)?;
 
         if self.read(Some(packets::T_LOGIN)).is_err() {
             panic!("Login failed.");
