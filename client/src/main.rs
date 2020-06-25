@@ -1,3 +1,4 @@
+mod input;
 mod tab;
 mod tailview;
 #[allow(dead_code)]
@@ -22,24 +23,21 @@ use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 use tui::Terminal;
-use unicode_width::UnicodeWidthStr;
 
+use input::History;
 use tab::{MsgType, Tabs};
 
 struct Ui {
-    input: String,
+    input: History,
     views: Tabs,
-    user_history: Vec<String>,
 }
 
 impl Default for Ui {
     fn default() -> Ui {
         Ui {
-            input: String::new(),
+            input: History::new(),
             // Tabs for channels and personal chats
             views: Tabs::new(),
-            // What the user has sent so far
-            user_history: Vec::with_capacity(100),
         }
     }
 }
@@ -81,9 +79,6 @@ fn main() -> Result<(), failure::Error> {
     let mut ui = Ui::default();
 
     println!("{}", clear::All);
-
-    let mut hist_offset = 0; // offset in the user_history vector (counted from the end)
-    let mut cursor_offset = 0; // offset of the cursor from the end of the string
 
     thread::scope(|s| {
         let server_handle = s.spawn(|_| {
@@ -149,77 +144,43 @@ fn main() -> Result<(), failure::Error> {
                         redraw = true;
                         match input {
                             Key::Backspace => {
-                                ui.input.pop();
+                                ui.input.backspace();
+                            }
+                            Key::Delete => {
+                                ui.input.delete();
                             }
                             Key::Ctrl(c) => match c {
-                                'w' => {
-                                    // XXX: should only remove the last word instead of the whole line
-                                    ui.input.clear();
-                                    cursor_offset = 0;
-                                }
+                                // Backspace over one word
+                                'w' => ui.input.backspace_word(),
                                 // Move the cursor to the beginning of the line
-                                'a' => cursor_offset = ui.input.width(),
+                                'a' => ui.input.move_to_start(),
                                 // Move the cursor to the end of the line
-                                'e' => cursor_offset = 0,
+                                'e' => ui.input.move_to_end(),
                                 // Cycle through tabs
                                 'n' => ui.views.next(),
                                 'p' => ui.views.previous(),
                                 _ => {}
                             },
                             Key::Up => {
-                                // Replace the current line with the entry in the user_history vector at
-                                // the offset hist_offset, counted from the end.
-                                hist_offset += 1;
-                                cursor_offset = 0;
-
-                                let hist_len = ui.user_history.len();
-
-                                if (hist_offset > hist_len) || (hist_len == 0) {
-                                    continue;
-                                }
-
-                                ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                                // Decrement history
+                                ui.input.prev();
                             }
                             Key::Down => {
-                                // Do the same as for the Up key, but in reverse. Take care not to
-                                // make the offset negative. If the offset would become zero, just
-                                // clear the input field.
-                                cursor_offset = 0;
-                                let hist_len = ui.user_history.len();
-                                if hist_offset == 0 || hist_len == 0 {
-                                    continue;
-                                } else if hist_offset == 1 {
-                                    ui.input.drain(..);
-                                    continue;
-                                }
-
-                                hist_offset -= 1;
-
-                                ui.input = ui.user_history[hist_len - hist_offset].to_string();
+                                // Increment history
+                                ui.input.next();
                             }
                             Key::Left => {
-                                if cursor_offset == ui.input.width() {
-                                    continue;
-                                }
-
-                                cursor_offset += 1;
+                                ui.input.move_left(1);
                             }
                             Key::Right => {
-                                if cursor_offset == 0 {
-                                    continue;
-                                }
-
-                                cursor_offset -= 1;
+                                ui.input.move_right(1);
                             }
                             Key::Char('\n') => {
-                                // Reset the position in the user_history buffer as well as the offset into
-                                // the input field for the cursor.
-                                hist_offset = 0;
-                                cursor_offset = 0;
-
-                                match ui.input.chars().next() {
+                                let line = ui.input.get_string();
+                                ui.input.new_line();
+                                match line.chars().next() {
                                     Some(v) if v == '/' => {
-                                        let input: Vec<_> = ui.input.split_whitespace().collect();
+                                        let input: Vec<_> = line.split_whitespace().collect();
                                         let cmd = input[0];
 
                                         if cmd == "/quit" {
@@ -234,23 +195,17 @@ fn main() -> Result<(), failure::Error> {
                                             // occurences of the command and recipient. We explicitly don't
                                             // use `input` as we may lose any duplicate whitespace the sender has
                                             // inserted, but remove the space after the recipient name.
-                                            let msg_text: String =
-                                                ui.input.replacen(cmd, "", 1).replacen(
-                                                    format!(" {} ", recipient).as_str(),
-                                                    "",
-                                                    1,
-                                                );
+                                            let msg_text = line.replacen(cmd, "", 1).replacen(
+                                                format!(" {} ", recipient).as_str(),
+                                                "",
+                                                1,
+                                            );
                                             let msg = Command::Personal(
                                                 recipient.to_string().clone(),
                                                 msg_text.clone(),
                                             );
                                             client.cmd_s.send(msg).unwrap();
 
-                                            // Record the normalized command
-                                            ui.user_history.push(format!(
-                                                "{} {} {}",
-                                                cmd, recipient, msg_text
-                                            ));
                                             ui.views
                                                 .add_message(
                                                     MsgType::Personal(recipient.to_string()),
@@ -261,15 +216,12 @@ fn main() -> Result<(), failure::Error> {
                                             ui.views.switch_to(MsgType::Personal(
                                                 recipient.to_string(),
                                             ));
-
-                                            ui.input.drain(..);
                                         } else if cmd == "/beep" && input.len() == 2 {
                                             let recipient = input[1];
 
                                             let msg = Command::Beep(recipient.to_string());
                                             client.cmd_s.send(msg).unwrap();
 
-                                            ui.user_history.push(format!("{} {}", cmd, recipient));
                                             ui.views
                                                 .add_message(
                                                     MsgType::Personal(recipient.to_string()),
@@ -280,7 +232,6 @@ fn main() -> Result<(), failure::Error> {
                                                     ),
                                                 )
                                                 .ok();
-                                            ui.input.drain(..);
                                         } else if (cmd == "/name" || cmd == "/nick")
                                             && input.len() == 2
                                         {
@@ -288,13 +239,11 @@ fn main() -> Result<(), failure::Error> {
 
                                             let msg = Command::Name(newname.to_string());
                                             client.cmd_s.send(msg).unwrap();
-                                            ui.user_history.push(format!("{} {}", cmd, newname));
                                             client.nickname = newname.to_string();
-                                            ui.input.drain(..);
                                         }
                                     }
                                     _ => {
-                                        let msg_text: String = ui.input.drain(..).collect();
+                                        let msg_text = line;
 
                                         client
                                             .cmd_s
@@ -306,22 +255,11 @@ fn main() -> Result<(), failure::Error> {
                                         ui.views
                                             .add_current(format!("{}: {}", timestamp(), msg_text))
                                             .ok();
-                                        ui.user_history.push(msg_text);
-                                        ui.input.clear();
                                     }
                                 }
                             }
                             Key::Char(c) => {
-                                // Determine where new characters should end up; simple case is just
-                                // at the end.
-                                if cursor_offset == 0 {
-                                    ui.input.push(c);
-                                } else {
-                                    // Otherwise have to insert the new character into ui.input at the provided
-                                    // (negative) offset.
-                                    let input_len = ui.input.len();
-                                    ui.input.insert(input_len - cursor_offset, c);
-                                }
+                                ui.input.insert(c);
                             }
                             Key::PageUp => {
                                 ui.views.scroll_up(termsize);
@@ -343,6 +281,7 @@ fn main() -> Result<(), failure::Error> {
 
             // Redraw if we need to
             if redraw {
+                let (input_str, input_cursor) = ui.input.view(termsize.width as usize);
                 terminal
                     .draw(|mut f| {
                         let chunks = Layout::default()
@@ -362,7 +301,7 @@ fn main() -> Result<(), failure::Error> {
                         ui.views.draw_titles(&mut f, chunks[0]);
                         ui.views.draw_current(&mut f, chunks[1]);
 
-                        Paragraph::new([Text::raw(&ui.input)].iter())
+                        Paragraph::new([Text::raw(input_str)].iter())
                             .block(Block::default().borders(Borders::TOP))
                             .render(&mut f, chunks[2]);
                     })
@@ -372,10 +311,7 @@ fn main() -> Result<(), failure::Error> {
                 write!(
                     terminal.backend_mut(),
                     "{}",
-                    Goto(
-                        2 + (ui.input.width() - cursor_offset) as u16,
-                        termsize.height - 1
-                    )
+                    Goto(2 + input_cursor as u16, termsize.height - 1)
                 )
                 .expect("Failed to position cursor");
                 io::stdout().flush().ok();
