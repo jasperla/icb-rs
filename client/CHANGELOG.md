@@ -2,6 +2,7 @@
 
 - Do not capture mouse input in order to facilitate copying from terminal.
 - Improve UI responsiveness when pasting.
+- Improve input handling.
 
 # 0.2.3
 
