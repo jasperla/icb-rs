@@ -1,3 +1,7 @@
+# 0.x.y (NOT RELEASED YET)
+
+- Do not panic on invalid packets or non-utf8 payloads.
+
 # 0.2.2
 
 - implement sending `beep` commands and receiving `beep` messages
