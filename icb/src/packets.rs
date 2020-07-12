@@ -1,5 +1,7 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::io::{Error, ErrorKind};
 use std::str;
 
 use crate::util::q;
@@ -62,7 +64,10 @@ fn invalid_packet_create(_fields: Vec<&str>) -> Vec<u8> {
 }
 
 #[allow(unused_variables)]
-fn invalid_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn invalid_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     panic!(
         "You're attempting to parse a packet that is not valid for a server to send to a client"
     );
@@ -75,7 +80,7 @@ pub struct Packet {
     pub packet_type: char,
     /// Parser for a given function, the returned HashMap contains at least one field (`type`)
     /// which is set to the `packet_type`.
-    pub parse: fn(Vec<u8>, usize) -> HashMap<&'static str, String>,
+    pub parse: fn(Vec<u8>, usize) -> Result<HashMap<&'static str, String>, std::io::Error>,
     /// Used to create a valid packet with all the provided fields.
     pub create: fn(Vec<&str>) -> Vec<u8>,
 }
@@ -85,6 +90,11 @@ pub static PACKETS: [&Packet; 7] = [
     &LOGIN, &PROTOCOL, &STATUS, &OPEN, &PERSONAL, &COMMAND, &BEEP,
 ];
 
+/// Convenience method for making InvalidData Errors
+fn err(msg: &str) -> Error {
+    Error::new(ErrorKind::InvalidData, msg)
+}
+
 /// Login packet, used to join the initial channel after connecting
 pub static LOGIN: Packet = Packet {
     packet_type: T_LOGIN,
@@ -92,11 +102,17 @@ pub static LOGIN: Packet = Packet {
     create: login_packet_create,
 };
 
-fn login_packet_parse(buffer: Vec<u8>, _len: usize) -> HashMap<&'static str, String> {
+fn login_packet_parse(
+    buffer: Vec<u8>,
+    _len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     // A received login packet should only contain the packet type byte terminated
     // by a NUL.
-    assert!(buffer[1] == b'\x00');
-    hashmap! { "type" => T_LOGIN.to_string() }
+    if buffer[1] != b'\x00' {
+        Err(err("Invalid login packet"))
+    } else {
+        Ok(hashmap! { "type" => T_LOGIN.to_string() })
+    }
 }
 
 fn login_packet_create(fields: Vec<&str>) -> Vec<u8> {
@@ -111,28 +127,33 @@ pub static PROTOCOL: Packet = Packet {
 };
 
 /// Create an iterator over the packet buffer's fields
-fn packet_buffer_iter(buffer: &[u8], len: usize) -> impl Iterator<Item = &[u8]> {
+fn packet_buffer_iter(buffer: &[u8], len: usize) -> impl Iterator<Item = Cow<str>> {
     // Create a copy of the message to split at the ^A field separator,
     // note it removes the first byte (packet_type) and the last byte (NUL).
     let message = &buffer[1..len - 1];
 
     // Split the packet on ^A (Start Of Heading), or ASCII 0x1
-    message.split(|sep| *sep == 0x1)
+    message
+        .split(|sep| *sep == 0x1)
+        .map(|e| String::from_utf8_lossy(e))
 }
 
-fn protocol_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn protocol_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
     // Skip the first field (protocol level)
     let _ = iter.next();
-    let hostid = str::from_utf8(iter.next().unwrap()).unwrap();
-    let clientid = str::from_utf8(iter.next().unwrap()).unwrap();
+    let hostid = iter.next().ok_or_else(|| err("Missing hostid"))?;
+    let clientid = iter.next().ok_or_else(|| err("Missing clientid"))?;
 
-    hashmap! {
+    Ok(hashmap! {
         "type" => T_PROTOCOL.to_string(),
         "hostid" => hostid.to_string(),
         "clientid" => clientid.to_string(),
-    }
+    })
 }
 
 fn protocol_packet_create(fields: Vec<&str>) -> Vec<u8> {
@@ -146,17 +167,20 @@ pub static STATUS: Packet = Packet {
     create: invalid_packet_create,
 };
 
-fn status_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn status_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
-    let category = str::from_utf8(iter.next().unwrap()).unwrap();
-    let message = str::from_utf8(iter.next().unwrap()).unwrap();
+    let category = iter.next().ok_or_else(|| err("Missing category"))?;
+    let message = iter.next().ok_or_else(|| err("Missing message"))?;
 
-    hashmap! {
+    Ok(hashmap! {
         "type" => T_STATUS.to_string(),
         "category" => category.to_string(),
         "message" => message.to_string(),
-    }
+    })
 }
 
 /// Open packet (normal chats)
@@ -166,17 +190,20 @@ pub static OPEN: Packet = Packet {
     create: open_packet_create,
 };
 
-fn open_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn open_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
-    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
-    let message = str::from_utf8(iter.next().unwrap()).unwrap();
+    let nickname = iter.next().ok_or_else(|| err("Missing nickname"))?;
+    let message = iter.next().ok_or_else(|| err("Missing message"))?;
 
-    hashmap! {
+    Ok(hashmap! {
         "type" => T_OPEN.to_string(),
         "nickname" => nickname.to_string(),
         "message" => message.to_string(),
-    }
+    })
 }
 
 fn open_packet_create(fields: Vec<&str>) -> Vec<u8> {
@@ -190,17 +217,20 @@ pub static PERSONAL: Packet = Packet {
     create: invalid_packet_create,
 };
 
-fn personal_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn personal_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
-    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
-    let message = str::from_utf8(iter.next().unwrap()).unwrap();
+    let nickname = iter.next().ok_or_else(|| err("Missing nickname"))?;
+    let message = iter.next().ok_or_else(|| err("Missing message"))?;
 
-    hashmap! {
+    Ok(hashmap! {
         "type" => T_PERSONAL.to_string(),
         "nickname" => nickname.to_string(),
         "message" => message.to_string(),
-    }
+    })
 }
 
 /// Command packet
@@ -254,13 +284,16 @@ pub static BEEP: Packet = Packet {
     create: invalid_packet_create,
 };
 
-fn beep_packet_parse(buffer: Vec<u8>, len: usize) -> HashMap<&'static str, String> {
+fn beep_packet_parse(
+    buffer: Vec<u8>,
+    len: usize,
+) -> Result<HashMap<&'static str, String>, std::io::Error> {
     let mut iter = packet_buffer_iter(&buffer, len);
 
-    let nickname = str::from_utf8(iter.next().unwrap()).unwrap();
+    let nickname = iter.next().ok_or_else(|| err("Missing nickname"))?;
 
-    hashmap! {
+    Ok(hashmap! {
         "type" => T_BEEP.to_string(),
         "nickname" => nickname.to_string(),
-    }
+    })
 }
