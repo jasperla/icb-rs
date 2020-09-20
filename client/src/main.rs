@@ -1,9 +1,9 @@
 mod input;
+mod message;
 mod tab;
 mod tailview;
 #[allow(dead_code)]
 mod util;
-use util::{Event, Events};
 
 #[macro_use]
 extern crate clap;
@@ -25,7 +25,9 @@ use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 use tui::Terminal;
 
 use input::History;
+use message::{Message, MessageType};
 use tab::{ChatType, Tabs};
+use util::{Event, Events};
 
 struct Ui {
     input: History,
@@ -101,32 +103,51 @@ fn main() -> Result<(), failure::Error> {
                 match packet_type {
                     packets::T_OPEN => ui.views.add_message(
                         ChatType::Open(group.clone()),
-                        format!("{} <{}> {}", timestamp(), m[1], m[2]),
+                        Message::new(
+                            Local::now(),
+                            MessageType::Open,
+                            m[1].to_string(),
+                            m[2].to_string(),
+                        ),
                     ),
                     packets::T_PERSONAL => ui.views.add_message(
                         ChatType::Personal(m[1].clone()),
-                        format!("{} <{}> {}", timestamp(), m[1], m[2]),
+                        Message::new(
+                            Local::now(),
+                            MessageType::Personal,
+                            m[1].to_string(),
+                            m[2].to_string(),
+                        ),
                     ),
                     packets::T_PROTOCOL => ui
                         .views
                         .add_status(format!("==> Connected to {} on {}", m[2], m[1])),
-                    packets::T_STATUS => match m[1].as_str() {
-                        "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
-                        | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
-                            ui.views.add_message(
+                    packets::T_STATUS => {
+                        let mtype = MessageType::from_status_str(m[1].as_str());
+                        match mtype {
+                            MessageType::Unknown => ui.views.add_status(format!(
+                                "=> Message '{}' received in unknown category '{}'",
+                                m[2], m[1]
+                            )),
+                            _ => ui.views.add_message(
                                 ChatType::Open(group.clone()),
-                                format!("{}: {} ", timestamp(), m[2]),
-                            )
+                                Message::new(
+                                    Local::now(),
+                                    mtype,
+                                    "[server]".to_string(),
+                                    m[2].to_string(),
+                                ),
+                            ),
                         }
-
-                        _ => ui.views.add_status(format!(
-                            "=> Message '{}' received in unknown category '{}'",
-                            m[2], m[1]
-                        )),
-                    },
+                    }
                     packets::T_BEEP => ui.views.add_message(
                         ChatType::Personal(m[1].clone()),
-                        format!("{} <{}> *beeps you*", timestamp(), m[1]),
+                        Message::new(
+                            Local::now(),
+                            MessageType::Beep,
+                            m[1].to_string(),
+                            "*beeps you*".to_string(),
+                        ),
                     ),
                     // XXX: should handle "\x18eNick is already in use\x00" too
                     _ => ui
@@ -209,7 +230,12 @@ fn main() -> Result<(), failure::Error> {
                                             ui.views
                                                 .add_message(
                                                     ChatType::Personal(recipient.to_string()),
-                                                    format!("{}: {}", timestamp(), msg_text),
+                                                    Message::new(
+                                                        Local::now(),
+                                                        MessageType::Personal,
+                                                        client.nickname.clone(),
+                                                        msg_text,
+                                                    ),
                                                 )
                                                 .ok();
 
@@ -225,10 +251,11 @@ fn main() -> Result<(), failure::Error> {
                                             ui.views
                                                 .add_message(
                                                     ChatType::Personal(recipient.to_string()),
-                                                    format!(
-                                                        "{}: *beep beep, {}*",
-                                                        timestamp(),
-                                                        recipient
+                                                    Message::new(
+                                                        Local::now(),
+                                                        MessageType::Beep,
+                                                        client.nickname.clone(),
+                                                        format!("*beep beep, {}", recipient),
                                                     ),
                                                 )
                                                 .ok();
@@ -253,7 +280,12 @@ fn main() -> Result<(), failure::Error> {
                                         // Send our own messages into the history as well as the server
                                         // won't echo them back to us.
                                         ui.views
-                                            .add_current(format!("{}: {}", timestamp(), msg_text))
+                                            .add_current(Message::new(
+                                                Local::now(),
+                                                MessageType::Open,
+                                                client.nickname.clone(),
+                                                msg_text,
+                                            ))
                                             .ok();
                                     }
                                 }

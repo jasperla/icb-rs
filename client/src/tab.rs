@@ -1,3 +1,4 @@
+use chrono::Local;
 use std::convert::TryFrom;
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -5,6 +6,7 @@ use tui::style::{Modifier, Style};
 use tui::terminal::Frame;
 use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 
+use crate::message::{Message, MessageType};
 use crate::tailview::TailView;
 use icb::Command;
 
@@ -38,13 +40,13 @@ impl Tab {
         }
     }
 
-    fn add(&mut self, message: String) -> Result<(), String> {
+    fn add(&mut self, message: Message) -> Result<(), String> {
         self.view.add(message);
         self.has_unread = true;
         Ok(())
     }
 
-    fn add_read(&mut self, message: String) -> Result<(), String> {
+    fn add_read(&mut self, message: Message) -> Result<(), String> {
         self.view.add(message);
         Ok(())
     }
@@ -86,7 +88,7 @@ impl Tabs {
         }
     }
 
-    pub fn add_message(&mut self, to: ChatType, msg: String) -> Result<(), String> {
+    pub fn add_message(&mut self, to: ChatType, msg: Message) -> Result<(), String> {
         for t in &mut self.tabs {
             if t.tab_type == to {
                 t.add(msg)?;
@@ -115,7 +117,7 @@ impl Tabs {
         }
     }
 
-    pub fn add_current(&mut self, msg: String) -> Result<(), String> {
+    pub fn add_current(&mut self, msg: Message) -> Result<(), String> {
         if let Some(tab) = self.tabs.get_mut(self.current_tab) {
             tab.add_read(msg)
         } else {
@@ -130,7 +132,15 @@ impl Tabs {
     }
 
     pub fn add_status(&mut self, msg: String) -> Result<(), String> {
-        self.add_message(ChatType::Status(STATUS.to_string()), msg)
+        self.add_message(
+            ChatType::Status(STATUS.to_string()),
+            Message::new(
+                Local::now(),
+                MessageType::Status,
+                "[system]".to_string(),
+                msg,
+            ),
+        )
     }
 
     pub fn draw_titles<B>(&mut self, mut frame: &mut Frame<B>, area: Rect)

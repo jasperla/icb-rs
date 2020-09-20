@@ -1,3 +1,4 @@
+use crate::message::Message;
 use std::convert::TryFrom;
 use tui::backend::Backend;
 use tui::layout::Rect;
@@ -6,22 +7,26 @@ use tui::widgets::{Block, Paragraph, Text, Widget};
 use unicode_width::UnicodeWidthStr;
 
 struct Line {
-    text: String,
+    message: Message,
 }
 
 impl Line {
-    fn new(line: String) -> Line {
-        let mut add = line.trim_end().to_string();
-        add.push('\n');
-        Line { text: add }
+    fn new(message: Message) -> Line {
+        Line { message }
     }
 
-    fn height(&self, view_width_16: u16) -> u16 {
+    fn height(&self, view_options: &ViewOptions, view_width_16: u16) -> u16 {
         let mut h: usize = 1;
         let mut w: usize = 0;
         let view_width: usize = view_width_16.into();
 
-        self.text.split_whitespace().for_each(|e| {
+        let text = self.message.render(view_options);
+
+        if text.is_none() {
+            return 0;
+        }
+
+        text.unwrap().split_whitespace().for_each(|e| {
             let mut next_w = e.width();
 
             // handle word wrapping
@@ -48,6 +53,23 @@ impl Line {
     }
 }
 
+// Options that control how this view renders and behaves
+pub struct ViewOptions {
+    pub show_date: bool,
+    pub show_arrivals: bool,
+    pub show_departures: bool,
+}
+
+impl ViewOptions {
+    pub fn new() -> Self {
+        Self {
+            show_date: false,
+            show_arrivals: true,
+            show_departures: true,
+        }
+    }
+}
+
 // A Paragraph that follows its last entry and allows scrolling
 pub struct TailView {
     // The full history for this view
@@ -56,6 +78,8 @@ pub struct TailView {
     start: usize,
     // The maximum line to start at
     max_start: usize,
+    // The view options
+    options: ViewOptions,
 }
 
 impl TailView {
@@ -64,11 +88,12 @@ impl TailView {
             history: Vec::with_capacity(1000),
             start: 0,
             max_start: 0,
+            options: ViewOptions::new(),
         }
     }
 
-    pub fn add(&mut self, line: String) {
-        self.history.push(Line::new(line));
+    pub fn add(&mut self, message: Message) {
+        self.history.push(Line::new(message));
     }
 
     pub fn scroll_up(&mut self, rect: Rect) {
@@ -96,7 +121,7 @@ impl TailView {
             .history
             .iter()
             .skip(self.max_start)
-            .map(|l| l.height(area.width))
+            .map(|l| l.height(&self.options, area.width))
             .rev()
             .collect();
 
@@ -140,7 +165,8 @@ impl TailView {
             .history
             .iter()
             .skip(self.start)
-            .map(|l| Text::raw(&l.text))
+            .filter_map(|l| l.message.render(&self.options))
+            .map(|s| Text::raw(s))
             .collect();
 
         Paragraph::new(lines.iter())
