@@ -58,6 +58,7 @@ pub struct ViewOptions {
     pub show_date: bool,
     pub show_arrivals: bool,
     pub show_departures: bool,
+    pub autoscroll: bool,
 }
 
 impl ViewOptions {
@@ -66,6 +67,7 @@ impl ViewOptions {
             show_date: false,
             show_arrivals: true,
             show_departures: true,
+            autoscroll: true,
         }
     }
 }
@@ -137,7 +139,7 @@ impl TailView {
     }
 
     fn auto_scroll(&mut self) {
-        let increment_start = self.start == self.max_start;
+        let increment_start = self.options.autoscroll && self.start == self.max_start;
 
         if let Some(res) = self.max_start.checked_add(1) {
             self.max_start = res;
@@ -173,5 +175,21 @@ impl TailView {
             .block(b)
             .wrap(true)
             .render(&mut frame, area);
+    }
+
+    pub fn toggle_show_date(&mut self) {
+        self.options.show_date = !self.options.show_date;
+    }
+
+    pub fn toggle_show_arrivals(&mut self) {
+        self.options.show_arrivals = !self.options.show_arrivals;
+    }
+
+    pub fn toggle_show_departures(&mut self) {
+        self.options.show_departures = !self.options.show_departures;
+    }
+
+    pub fn toggle_autoscroll(&mut self) {
+        self.options.autoscroll = !self.options.autoscroll;
     }
 }

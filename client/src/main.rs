@@ -180,6 +180,12 @@ fn main() -> Result<(), failure::Error> {
                                 // Cycle through tabs
                                 'n' => ui.views.next(),
                                 'p' => ui.views.previous(),
+                                // Toggle display of dates with messages
+                                'd' => ui.views.toggle_show_date(),
+                                // Toggle display of arrived / departed messages
+                                'l' => ui.views.toggle_show_arrivals_departures(),
+                                // Toggle autoscroll
+                                's' => ui.views.toggle_autoscroll(),
                                 _ => {}
                             },
                             Key::Up => {

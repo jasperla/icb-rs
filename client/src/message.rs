@@ -1,7 +1,7 @@
 use crate::tailview::ViewOptions;
 use chrono::{DateTime, Local};
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum MessageType {
     Arrive,
     Beep,
@@ -65,11 +65,17 @@ impl Message {
     }
 
     pub fn render(&self, opts: &ViewOptions) -> Option<String> {
-        if !opts.show_arrivals && self.message_type == MessageType::Arrive {
+        if !opts.show_arrivals
+            && (self.message_type == MessageType::Arrive
+                || self.message_type == MessageType::SignOn)
+        {
             return None;
         }
 
-        if !opts.show_departures && self.message_type == MessageType::Depart {
+        if !opts.show_departures
+            && (self.message_type == MessageType::Depart
+                || self.message_type == MessageType::SignOff)
+        {
             return None;
         }
 

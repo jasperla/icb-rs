@@ -212,4 +212,23 @@ impl Tabs {
             self.tabs.len() - 1
         }
     }
+
+    pub fn toggle_show_date(&mut self) {
+        for t in &mut self.tabs {
+            t.view.toggle_show_date();
+        }
+    }
+
+    pub fn toggle_show_arrivals_departures(&mut self) {
+        for t in &mut self.tabs {
+            t.view.toggle_show_arrivals();
+            t.view.toggle_show_departures();
+        }
+    }
+
+    pub fn toggle_autoscroll(&mut self) {
+        for t in &mut self.tabs {
+            t.view.toggle_autoscroll();
+        }
+    }
 }
