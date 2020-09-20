@@ -25,7 +25,7 @@ use tui::widgets::{Block, Borders, Paragraph, Text, Widget};
 use tui::Terminal;
 
 use input::History;
-use tab::{MsgType, Tabs};
+use tab::{ChatType, Tabs};
 
 struct Ui {
     input: History,
@@ -100,11 +100,11 @@ fn main() -> Result<(), failure::Error> {
                 let packet_type = m[0].chars().next().unwrap();
                 match packet_type {
                     packets::T_OPEN => ui.views.add_message(
-                        MsgType::Open(group.clone()),
+                        ChatType::Open(group.clone()),
                         format!("{} <{}> {}", timestamp(), m[1], m[2]),
                     ),
                     packets::T_PERSONAL => ui.views.add_message(
-                        MsgType::Personal(m[1].clone()),
+                        ChatType::Personal(m[1].clone()),
                         format!("{} <{}> {}", timestamp(), m[1], m[2]),
                     ),
                     packets::T_PROTOCOL => ui
@@ -114,7 +114,7 @@ fn main() -> Result<(), failure::Error> {
                         "Arrive" | "Boot" | "Depart" | "Help" | "Name" | "No-Beep" | "Notify"
                         | "Sign-off" | "Sign-on" | "Status" | "Topic" | "Warning" => {
                             ui.views.add_message(
-                                MsgType::Open(group.clone()),
+                                ChatType::Open(group.clone()),
                                 format!("{}: {} ", timestamp(), m[2]),
                             )
                         }
@@ -125,7 +125,7 @@ fn main() -> Result<(), failure::Error> {
                         )),
                     },
                     packets::T_BEEP => ui.views.add_message(
-                        MsgType::Personal(m[1].clone()),
+                        ChatType::Personal(m[1].clone()),
                         format!("{} <{}> *beeps you*", timestamp(), m[1]),
                     ),
                     // XXX: should handle "\x18eNick is already in use\x00" too
@@ -208,12 +208,12 @@ fn main() -> Result<(), failure::Error> {
 
                                             ui.views
                                                 .add_message(
-                                                    MsgType::Personal(recipient.to_string()),
+                                                    ChatType::Personal(recipient.to_string()),
                                                     format!("{}: {}", timestamp(), msg_text),
                                                 )
                                                 .ok();
 
-                                            ui.views.switch_to(MsgType::Personal(
+                                            ui.views.switch_to(ChatType::Personal(
                                                 recipient.to_string(),
                                             ));
                                         } else if cmd == "/beep" && input.len() == 2 {
@@ -224,7 +224,7 @@ fn main() -> Result<(), failure::Error> {
 
                                             ui.views
                                                 .add_message(
-                                                    MsgType::Personal(recipient.to_string()),
+                                                    ChatType::Personal(recipient.to_string()),
                                                     format!(
                                                         "{}: *beep beep, {}*",
                                                         timestamp(),

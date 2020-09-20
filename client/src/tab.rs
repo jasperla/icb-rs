@@ -9,7 +9,7 @@ use crate::tailview::TailView;
 use icb::Command;
 
 #[derive(Clone, PartialEq)]
-pub enum MsgType {
+pub enum ChatType {
     Status(String),
     Open(String),
     Personal(String),
@@ -20,21 +20,21 @@ const STATUS: &str = "Status";
 struct Tab {
     view: TailView,
     title: String,
-    tab_type: MsgType,
+    tab_type: ChatType,
     has_unread: bool,
 }
 
 impl Tab {
-    fn new(tab_type: MsgType) -> Tab {
+    fn new(tab_type: ChatType) -> Tab {
         match tab_type {
-            MsgType::Status(ref name) | MsgType::Open(ref name) | MsgType::Personal(ref name) => {
-                Tab {
-                    view: TailView::new(),
-                    title: name.clone(),
-                    tab_type,
-                    has_unread: false,
-                }
-            }
+            ChatType::Status(ref name)
+            | ChatType::Open(ref name)
+            | ChatType::Personal(ref name) => Tab {
+                view: TailView::new(),
+                title: name.clone(),
+                tab_type,
+                has_unread: false,
+            },
         }
     }
 
@@ -64,7 +64,7 @@ impl Tab {
 
     fn command(&self, msg: &str) -> Command {
         match self.tab_type {
-            MsgType::Personal(ref user) => Command::Personal(user.clone(), msg.to_string()),
+            ChatType::Personal(ref user) => Command::Personal(user.clone(), msg.to_string()),
             _ => Command::Open(msg.to_string()),
         }
     }
@@ -78,7 +78,7 @@ pub struct Tabs {
 impl Tabs {
     pub fn new() -> Tabs {
         let mut v = Vec::new();
-        v.push(Tab::new(MsgType::Status(STATUS.to_string())));
+        v.push(Tab::new(ChatType::Status(STATUS.to_string())));
 
         Tabs {
             tabs: v,
@@ -86,7 +86,7 @@ impl Tabs {
         }
     }
 
-    pub fn add_message(&mut self, to: MsgType, msg: String) -> Result<(), String> {
+    pub fn add_message(&mut self, to: ChatType, msg: String) -> Result<(), String> {
         for t in &mut self.tabs {
             if t.tab_type == to {
                 t.add(msg)?;
@@ -100,7 +100,7 @@ impl Tabs {
         self.tabs.push(newtab);
 
         // If it's a new group chat, then switch to it
-        if let MsgType::Open(_) = to {
+        if let ChatType::Open(_) = to {
             self.current_tab = self.tabs.len() - 1;
         }
         Ok(())
@@ -123,14 +123,14 @@ impl Tabs {
         }
     }
 
-    pub fn switch_to(&mut self, to: MsgType) {
+    pub fn switch_to(&mut self, to: ChatType) {
         if let Some(n) = self.tabs.iter().position(|e| e.tab_type == to) {
             self.current_tab = n;
         }
     }
 
     pub fn add_status(&mut self, msg: String) -> Result<(), String> {
-        self.add_message(MsgType::Status(STATUS.to_string()), msg)
+        self.add_message(ChatType::Status(STATUS.to_string()), msg)
     }
 
     pub fn draw_titles<B>(&mut self, mut frame: &mut Frame<B>, area: Rect)
