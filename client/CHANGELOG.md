@@ -3,6 +3,9 @@
 - Do not capture mouse input in order to facilitate copying from terminal.
 - Improve UI responsiveness when pasting.
 - Improve input handling.
+- Add options for toggling the display of dates (Ctrl-d),
+	the display of arrivals / departures (Ctrl-l)
+	and enabling / disabling autoscroll (Ctrl-s)
 
 # 0.2.3
 
