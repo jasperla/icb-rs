@@ -192,4 +192,12 @@ impl TailView {
     pub fn toggle_autoscroll(&mut self) {
         self.options.autoscroll = !self.options.autoscroll;
     }
+
+    pub fn status_line(&self) -> String {
+        let mut s = String::new();
+        if !self.options.autoscroll {
+            s.push('S');
+        }
+        s
+    }
 }

@@ -231,4 +231,12 @@ impl Tabs {
             t.view.toggle_autoscroll();
         }
     }
+
+    pub fn status_line(&self) -> String {
+        if let Some(t) = self.tabs.get(self.current_tab) {
+            t.view.status_line()
+        } else {
+            String::new()
+        }
+    }
 }
