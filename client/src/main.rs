@@ -340,7 +340,11 @@ fn main() -> Result<(), failure::Error> {
                         ui.views.draw_current(&mut f, chunks[1]);
 
                         Paragraph::new([Text::raw(input_str)].iter())
-                            .block(Block::default().borders(Borders::TOP))
+                            .block(
+                                Block::default()
+                                    .title(&ui.views.status_line())
+                                    .borders(Borders::TOP),
+                            )
                             .render(&mut f, chunks[2]);
                     })
                     .expect("Failed to draw UI to terminal");
