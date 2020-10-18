@@ -4,8 +4,9 @@
 - Improve UI responsiveness when pasting.
 - Improve input handling.
 - Add options for toggling the display of dates (Ctrl-d),
-	the display of arrivals / departures (Ctrl-l)
-	and enabling / disabling autoscroll (Ctrl-s)
+	the display of arrivals / departures (Ctrl-u)
+	enabling / disabling autoscroll (Ctrl-s)
+	enabling logging to ~/.icbc/logs (Ctrl-l, and -l run option)
 
 # 0.2.3
 

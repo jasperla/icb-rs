@@ -1,5 +1,7 @@
 use chrono::Local;
 use std::convert::TryFrom;
+use std::io::Error;
+use std::path::PathBuf;
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Modifier, Style};
@@ -27,12 +29,12 @@ struct Tab {
 }
 
 impl Tab {
-    fn new(tab_type: ChatType) -> Tab {
+    fn new(tab_type: ChatType, log_path: Option<PathBuf>) -> Tab {
         match tab_type {
             ChatType::Status(ref name)
             | ChatType::Open(ref name)
             | ChatType::Personal(ref name) => Tab {
-                view: TailView::new(),
+                view: TailView::new(name, log_path),
                 title: name.clone(),
                 tab_type,
                 has_unread: false,
@@ -75,17 +77,26 @@ impl Tab {
 pub struct Tabs {
     tabs: Vec<Tab>,
     current_tab: usize,
+    log_path: Option<PathBuf>,
+    log_default: bool,
 }
 
 impl Tabs {
     pub fn new() -> Tabs {
         let mut v = Vec::new();
-        v.push(Tab::new(ChatType::Status(STATUS.to_string())));
+        v.push(Tab::new(ChatType::Status(STATUS.to_string()), None));
 
         Tabs {
             tabs: v,
             current_tab: 0,
+            log_path: None,
+            log_default: false,
         }
+    }
+
+    pub fn set_logging(&mut self, path: Option<PathBuf>, default: bool) {
+        self.log_path = path;
+        self.log_default = default;
     }
 
     pub fn add_message(&mut self, to: ChatType, msg: Message) -> Result<(), String> {
@@ -97,7 +108,16 @@ impl Tabs {
         }
 
         // New chat
-        let mut newtab = Tab::new(to.clone());
+        let mut newtab = Tab::new(to.clone(), self.log_path.clone());
+
+        // Enable logging if needed. Defer handling the result until
+        // everything is set up, since a log error is not fatal.
+        let log_res = if self.log_default {
+            newtab.view.enable_logging().map_err(|why| why.to_string())
+        } else {
+            Ok(())
+        };
+
         newtab.add(msg)?;
         self.tabs.push(newtab);
 
@@ -105,7 +125,7 @@ impl Tabs {
         if let ChatType::Open(_) = to {
             self.current_tab = self.tabs.len() - 1;
         }
-        Ok(())
+        log_res
     }
 
     pub fn command_for_current(&self, msg: &str) -> Command {
@@ -229,6 +249,14 @@ impl Tabs {
     pub fn toggle_autoscroll(&mut self) {
         if let Some(t) = self.tabs.get_mut(self.current_tab) {
             t.view.toggle_autoscroll();
+        }
+    }
+
+    pub fn toggle_logging(&mut self) -> Result<(), Error> {
+        if let Some(t) = self.tabs.get_mut(self.current_tab) {
+            t.view.toggle_logging()
+        } else {
+            Ok(())
         }
     }
 

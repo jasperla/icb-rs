@@ -1,5 +1,9 @@
 use crate::message::Message;
+use chrono::Local;
 use std::convert::TryFrom;
+use std::fs::{File, OpenOptions};
+use std::io::{Error, ErrorKind, Write};
+use std::path::PathBuf;
 use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::terminal::Frame;
@@ -82,19 +86,33 @@ pub struct TailView {
     max_start: usize,
     // The view options
     options: ViewOptions,
+    // The name of the room
+    name: String,
+    // The base path to the log file
+    log_path: Option<PathBuf>,
+    // The log file, if one if open
+    log: Option<File>,
 }
 
 impl TailView {
-    pub fn new() -> TailView {
+    pub fn new(name: &String, log_path: Option<PathBuf>) -> TailView {
         TailView {
             history: Vec::with_capacity(1000),
             start: 0,
             max_start: 0,
             options: ViewOptions::new(),
+            name: name.clone(),
+            log_path: log_path.clone(),
+            log: None,
         }
     }
 
     pub fn add(&mut self, message: Message) {
+        if let Some(ref mut log) = self.log {
+            if let Some(s) = message.render(&self.options) {
+                log.write_all(&s.as_bytes()).ok();
+            }
+        }
         self.history.push(Line::new(message));
     }
 
@@ -177,6 +195,40 @@ impl TailView {
             .render(&mut frame, area);
     }
 
+    fn new_log(&mut self) -> Result<(), Error> {
+        if let Some(base) = &self.log_path {
+            let mut path = base.clone();
+            path.push(self.name.clone());
+            std::fs::create_dir_all(&path)?;
+            path.push(Local::now().to_string());
+            self.log = Some(
+                OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .write(true)
+                    .open(path)?,
+            );
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorKind::NotFound,
+                "No log path found. This could mean failure to find $HOME",
+            ))
+        }
+    }
+
+    pub fn toggle_logging(&mut self) -> Result<(), Error> {
+        if self.log.take().is_none() {
+            self.new_log()
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn enable_logging(&mut self) -> Result<(), Error> {
+        self.new_log()
+    }
+
     pub fn toggle_show_date(&mut self) {
         self.options.show_date = !self.options.show_date;
     }
@@ -197,6 +249,9 @@ impl TailView {
         let mut s = String::new();
         if !self.options.autoscroll {
             s.push('S');
+        }
+        if self.log.is_some() {
+            s.push('L');
         }
         s
     }

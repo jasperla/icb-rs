@@ -31,3 +31,8 @@ args:
       help: Group to join
       takes_value: true
       default_value: "1"
+  - log:
+      short: l
+      long: log
+      help: Enable logging in ~/.icbc/logs
+      takes_value: false
