@@ -58,6 +58,14 @@ fn main() -> Result<(), failure::Error> {
     let serverip = matches.value_of("hostname").unwrap().to_string();
     let port = value_t!(matches, "port", u16).unwrap_or(7326);
     let group = matches.value_of("group").unwrap().to_string();
+    let log_default = matches.is_present("log");
+
+    let log_path = home::home_dir().map(|mut p| {
+        p.push(".icbc");
+        p.push("logs");
+        p.push(&serverip);
+        p
+    });
 
     let config = Config {
         nickname,
@@ -79,6 +87,7 @@ fn main() -> Result<(), failure::Error> {
 
     // ...and finally create the default UI state
     let mut ui = Ui::default();
+    ui.views.set_logging(log_path, log_default);
 
     println!("{}", clear::All);
 
@@ -183,9 +192,15 @@ fn main() -> Result<(), failure::Error> {
                                 // Toggle display of dates with messages
                                 'd' => ui.views.toggle_show_date(),
                                 // Toggle display of arrived / departed messages
-                                'l' => ui.views.toggle_show_arrivals_departures(),
+                                'u' => ui.views.toggle_show_arrivals_departures(),
                                 // Toggle autoscroll
                                 's' => ui.views.toggle_autoscroll(),
+                                // Toggle logging
+                                'l' => {
+                                    if let Err(why) = ui.views.toggle_logging() {
+                                        ui.views.add_status(format!("Logging error: {}", why)).ok();
+                                    }
+                                }
                                 _ => {}
                             },
                             Key::Up => {
